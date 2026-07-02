@@ -2920,6 +2920,7 @@ setTimeout(hideLoadingScreen, 5000); // সর্বোচ্চ ৫ সেক�
                 <select id="expense-category">
                     <option value="নিজ">নিজ (Personal)</option><option value="বাচ্চা">বাচ্চা (Kids)</option>
                     <option value="স্ত্রী">স্ত্রী (Wife)</option><option value="সংসার">সংসার (Family)</option>
+                    <option value="দোকান">দোকান (Shop)</option>
                     <option value="অন্যান্য">অন্যান্য (Others)</option>
                 </select>
             </div>
@@ -2936,15 +2937,21 @@ setTimeout(hideLoadingScreen, 5000); // সর্বোচ্চ ৫ সেক�
             <div class="form-group"><label>টাকার পরিমাণ</label><input type="number" id="expense-amount" placeholder="0" required step="any"></div>
             <button type="submit" id="expense-submit-btn" class="primary-btn" style="background-color:#16a34a;">💸 খরচ সেভ করুন</button>
         </form>
-        <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
             <h4 class="section-title" style="margin:0;">💸 খরচের তালিকা</h4>
-            <button class="sort-btn" id="expense-sort-btn" onclick="toggleExpenseSort()">📅 নতুন আগে ▼</button>
+            <div style="display:flex;gap:6px;">
+                <button class="sort-btn" id="expense-sort-btn" onclick="toggleExpenseSort()">📅 নতুন আগে ▼</button>
+                <button class="sort-btn" onclick="downloadExpensePDF()" style="background:#dc2626;color:#fff;">📄 PDF ডাউনলোড</button>
+            </div>
         </div>
-        <div style="display:flex;gap:8px;align-items:center;margin-top:10px;margin-bottom:6px;background:#fff1f2;border:1px solid #fecdd3;border-radius:8px;padding:8px 12px;">
+        <div style="display:flex;gap:8px;align-items:center;margin-top:10px;margin-bottom:6px;background:#fff1f2;border:1px solid #fecdd3;border-radius:8px;padding:8px 12px;flex-wrap:wrap;">
             <label style="font-size:13px;font-weight:700;color:#9f1239;white-space:nowrap;">📅 তারিখ:</label>
-            <input type="date" id="expense-date-filter" oninput="loadExpenseTable()" style="flex:1;padding:6px 10px;border:1px solid #fecdd3;border-radius:6px;font-size:13px;outline:none;background:#fff;">
-            <button onclick="document.getElementById('expense-date-filter').value='';loadExpenseTable();" style="background:#dc2626;color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">✕ ক্লিয়ার</button>
+            <input type="date" id="expense-date-filter" oninput="document.getElementById('expense-month-filter').value='';loadExpenseTable();" style="flex:1;min-width:130px;padding:6px 10px;border:1px solid #fecdd3;border-radius:6px;font-size:13px;outline:none;background:#fff;">
+            <label style="font-size:13px;font-weight:700;color:#9f1239;white-space:nowrap;">🗓️ মাস:</label>
+            <input type="month" id="expense-month-filter" oninput="document.getElementById('expense-date-filter').value='';loadExpenseTable();" style="flex:1;min-width:130px;padding:6px 10px;border:1px solid #fecdd3;border-radius:6px;font-size:13px;outline:none;background:#fff;">
+            <button onclick="document.getElementById('expense-date-filter').value='';document.getElementById('expense-month-filter').value='';loadExpenseTable();" style="background:#dc2626;color:#fff;border:none;border-radius:6px;padding:6px 10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">✕ ক্লিয়ার</button>
         </div>
+        <div id="expense-category-summary" style="margin-bottom:10px;"></div>
         <input type="text" class="search-box" placeholder="🔍 খরচ খুঁজুন..." oninput="filterExpenseTable(this.value)" style="margin-bottom:10px;margin-top:10px;">
         <table class="data-table" style="margin-top:10px;">
             <thead><tr><th>তারিখ</th><th>বিবরণ</th><th style="text-align:right;">পরিমাণ</th><th style="text-align:center;">অ্যাকশন</th></tr></thead>
@@ -8679,12 +8686,20 @@ function deleteDailyIncome(id) {
     loadDailyIncomeTable();
 }
 
+// dateFilter (YYYY-MM-DD) থাকলে সেটা অনুযায়ী, না থাকলে monthFilter (YYYY-MM) অনুযায়ী, দুটোই ফাঁকা হলে সব খরচ
+function getFilteredExpenses(db, dateFilter, monthFilter) {
+    if(dateFilter) return db.expenses.filter(e=>e.date===dateFilter);
+    if(monthFilter) return db.expenses.filter(e=>(e.date||'').slice(0,7)===monthFilter);
+    return db.expenses;
+}
 function loadExpenseTable() {
     const db=loadDB(); const tbody=document.getElementById('expense-table-body');
     const dateFilter=(document.getElementById('expense-date-filter')||{}).value||'';
-    const filtered=dateFilter?db.expenses.filter(e=>e.date===dateFilter):db.expenses;
+    const monthFilter=(document.getElementById('expense-month-filter')||{}).value||'';
+    const filtered=getFilteredExpenses(db, dateFilter, monthFilter);
     const total=filtered.reduce((s,e)=>s+(e.amount||0),0);
-    if(filtered.length===0){tbody.innerHTML='<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:15px;">'+(dateFilter?'এই তারিখে কোনো খরচ নেই':'কোনো খরচ নেই')+'</td></tr>';return;}
+    renderExpenseCategorySummary(filtered);
+    if(filtered.length===0){tbody.innerHTML='<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:15px;">'+(dateFilter?'এই তারিখে কোনো খরচ নেই':(monthFilter?'এই মাসে কোনো খরচ নেই':'কোনো খরচ নেই'))+'</td></tr>';return;}
     const sortedExpenses = sortByDate(filtered, 'date', sortState.expense);
     tbody.innerHTML=sortedExpenses.map(ex=>`
         <tr style="${editingExpenseId===ex.id?'background:#fef9c3;':''}">
@@ -8696,6 +8711,111 @@ function loadExpenseTable() {
                 <button onclick="deleteExpense(${ex.id})" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;border-radius:6px;padding:4px 8px;cursor:pointer;font-weight:700;font-size:12px;">🗑️</button>
             </td>
         </tr>`).join('')+(total>0?`<tr style="background:#fee2e2;font-weight:800;"><td colspan="2" style="padding:8px 10px;">সর্বমোট খরচ</td><td style="text-align:right;color:#dc2626;padding:8px 10px;">${total.toFixed(2)} ৳</td><td></td></tr>`:'');
+}
+
+// খরচের খাত অনুসারে মোট (category-wise expense summary)
+function getExpenseCategoryTotals(list) {
+    const totals={};
+    list.forEach(ex=>{
+        const cat=ex.category||'অন্যান্য';
+        totals[cat]=(totals[cat]||0)+(ex.amount||0);
+    });
+    return Object.entries(totals).sort((a,b)=>b[1]-a[1]); // বেশি খরচের খাত আগে
+}
+function renderExpenseCategorySummary(list) {
+    const box=document.getElementById('expense-category-summary');
+    if(!box) return;
+    if(!list.length){box.innerHTML='';return;}
+    const catTotals=getExpenseCategoryTotals(list);
+    const grand=list.reduce((s,e)=>s+(e.amount||0),0);
+    box.innerHTML=`
+        <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:10px 12px;">
+            <div style="font-size:13px;font-weight:800;color:#9a3412;margin-bottom:8px;">📊 খাত অনুসারে মোট খরচ</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;">
+                ${catTotals.map(([cat,amt])=>`
+                    <div style="background:#fff;border:1px solid #fed7aa;border-radius:8px;padding:8px 10px;text-align:center;">
+                        <div style="font-size:12px;color:#78350f;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${cat}</div>
+                        <div style="font-size:14px;color:#dc2626;font-weight:800;">${amt.toFixed(2)} ৳</div>
+                    </div>`).join('')}
+            </div>
+        </div>`;
+}
+
+const BN_MONTHS={'01':'জানুয়ারি','02':'ফেব্রুয়ারি','03':'মার্চ','04':'এপ্রিল','05':'মে','06':'জুন','07':'জুলাই','08':'আগস্ট','09':'সেপ্টেম্বর','10':'অক্টোবর','11':'নভেম্বর','12':'ডিসেম্বর'};
+function downloadExpensePDF() {
+    const db=loadDB();
+    const dateFilter=(document.getElementById('expense-date-filter')||{}).value||'';
+    const monthFilter=(document.getElementById('expense-month-filter')||{}).value||'';
+    let expenses = getFilteredExpenses(db, dateFilter, monthFilter);
+    if(!dateFilter && !monthFilter) expenses=[...expenses].sort((a,b)=>b.date.localeCompare(a.date));
+    else expenses=[...expenses].sort((a,b)=>a.date.localeCompare(b.date));
+    if(expenses.length===0){showToast(dateFilter?'এই তারিখে কোনো খরচ নেই!':(monthFilter?'এই মাসে কোনো খরচ নেই!':'কোনো খরচ রেকর্ড নেই!'),'error');return;}
+    let titleLine = 'সকল খরচ (তারিখ অনুসারে)';
+    if(dateFilter) titleLine = `তারিখ: ${dateFilter}`;
+    else if(monthFilter){ const [y,m]=monthFilter.split('-'); titleLine = `মাস: ${BN_MONTHS[m]||m} ${y}`; }
+    const catTotals = getExpenseCategoryTotals(expenses);
+    const grandTotal = expenses.reduce((s,e)=>s+(e.amount||0),0);
+    const rows = expenses.map((ex,i)=>`<tr>
+        <td style="padding:6px 8px;border:1px solid #ddd;text-align:center;">${i+1}</td>
+        <td style="padding:6px 8px;border:1px solid #ddd;white-space:nowrap;">${ex.date}</td>
+        <td style="padding:6px 8px;border:1px solid #ddd;">${ex.category||'—'}</td>
+        <td style="padding:6px 8px;border:1px solid #ddd;">${ex.desc||'—'}</td>
+        <td style="padding:6px 8px;border:1px solid #ddd;font-size:12px;">${PM[ex.method]||ex.method||'—'}</td>
+        <td style="padding:6px 8px;border:1px solid #ddd;text-align:right;color:#dc2626;font-weight:700;">${(ex.amount||0).toFixed(2)} ৳</td>
+    </tr>`).join('');
+    const catRows = catTotals.map(([cat,amt])=>`<tr>
+        <td style="padding:6px 8px;border:1px solid #ddd;">${cat}</td>
+        <td style="padding:6px 8px;border:1px solid #ddd;text-align:right;font-weight:700;color:#dc2626;">${amt.toFixed(2)} ৳</td>
+        <td style="padding:6px 8px;border:1px solid #ddd;text-align:right;">${grandTotal>0?((amt/grandTotal)*100).toFixed(1):'0.0'}%</td>
+    </tr>`).join('');
+    const win=window.open('','_blank');
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>খরচ রিপোর্ট</title>
+    <style>
+        body{font-family:'Segoe UI',Arial,sans-serif;padding:20px;color:#1e293b;}
+        h1{color:#1e3c72;text-align:center;margin:0 0 4px;font-size:22px;}
+        p.sub{text-align:center;color:#64748b;margin:0 0 4px;font-size:12px;}
+        p.filter{text-align:center;color:#dc2626;font-weight:700;margin:0 0 16px;font-size:13px;}
+        h2.sec{font-size:14px;color:#1e3c72;border-left:4px solid #dc2626;padding-left:8px;margin:18px 0 8px;}
+        table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px;}
+        th{background:#1e3c72;color:#fff;padding:9px 8px;border:1px solid #1e3c72;text-align:left;font-size:11px;}
+        tr:nth-child(even){background:#f8fafc;}
+        .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0;text-align:center;}
+        .s-card{background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:10px;}
+        .s-label{font-size:11px;color:#9a3412;font-weight:600;}
+        .s-val{font-size:16px;font-weight:800;color:#7c2d12;}
+        tfoot tr{background:#fee2e2;font-weight:800;}
+        @media print{button{display:none!important;}}
+    </style></head><body>
+    <h1>আইটি জোন</h1>
+    <p class="sub">Baliadangi, Thakurgaon, Bangladesh</p>
+    <p class="filter">💸 খরচ রিপোর্ট — ${titleLine}</p>
+    <div class="summary">
+        <div class="s-card"><div class="s-label">মোট এন্ট্রি</div><div class="s-val">${expenses.length} টি</div></div>
+        <div class="s-card"><div class="s-label">মোট খাত</div><div class="s-val">${catTotals.length} টি</div></div>
+        <div class="s-card"><div class="s-label">সর্বমোট খরচ</div><div class="s-val" style="color:#dc2626;">${grandTotal.toFixed(2)} ৳</div></div>
+    </div>
+    <h2 class="sec">📊 খাত অনুসারে মোট খরচ</h2>
+    <table>
+        <thead><tr><th>খরচের খাত</th><th style="text-align:right;">মোট টাকা</th><th style="text-align:right;">শতকরা</th></tr></thead>
+        <tbody>${catRows}</tbody>
+        <tfoot><tr><td style="padding:8px;border:1px solid #ddd;">সর্বমোট</td><td style="padding:8px;text-align:right;border:1px solid #ddd;color:#dc2626;">${grandTotal.toFixed(2)} ৳</td><td style="padding:8px;text-align:right;border:1px solid #ddd;">100%</td></tr></tfoot>
+    </table>
+    <h2 class="sec">📋 বিস্তারিত খরচের তালিকা</h2>
+    <table>
+        <thead><tr>
+            <th style="text-align:center;">#</th>
+            <th>তারিখ</th><th>খাত</th><th>বিবরণ</th><th>পেমেন্ট</th>
+            <th style="text-align:right;">টাকা</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr>
+            <td colspan="5" style="padding:8px;text-align:right;border:1px solid #ddd;">সর্বমোট (${expenses.length} এন্ট্রি):</td>
+            <td style="padding:8px;text-align:right;border:1px solid #ddd;color:#dc2626;">${grandTotal.toFixed(2)} ৳</td>
+        </tr></tfoot>
+    </table>
+    <p style="text-align:right;font-size:11px;color:#94a3b8;margin-top:12px;">মুদ্রণের তারিখ: ${new Date().toLocaleDateString('bn-BD')}</p>
+    <script>window.onload=function(){window.print();}<\/script></body></html>`);
+    win.document.close();
 }
 
 // ═══════════════════════════════════════════
