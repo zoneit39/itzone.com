@@ -9242,8 +9242,8 @@ function updateDashboardSummary() {
         todayIncome += fdDayEndTotal - fdDayStartTotal;
     });
 
-    // নেট ইনকাম = আজকের ইনকাম − (আজকের বিক্রি − আজকের ব্যয়না)
-    const netIncome = todayIncome - (totalSales - totalCommission);
+    // নেট ইনকাম = আজকের ইনকাম − আজকের বিক্রি − আজকের ব্যয়না
+    const netIncome = todayIncome - totalSales - totalCommission;
 
     document.getElementById('sum-sales').textContent      = totalSales.toFixed(0)+' ৳';
     document.getElementById('sum-profit').textContent     = totalProfit.toFixed(0)+' ৳';
