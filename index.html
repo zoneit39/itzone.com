@@ -2777,7 +2777,12 @@ setTimeout(hideLoadingScreen, 5000); // সর্বোচ্চ ৫ সেক�
         <br>
         <form onsubmit="saveLedger(event)">
             <div class="form-group"><label>বাকি দেওয়ার তারিখ</label><input type="date" id="ledger-date" required></div>
-            <div class="form-group"><label>কাস্টমারের নাম</label><input type="text" id="ledger-name" placeholder="নাম লিখুন" required></div>
+            <div class="form-group">
+                <label>👤 কাস্টমারের নাম</label>
+                <input type="text" id="ledger-name" placeholder="নাম লিখুন বা সিলেক্ট করুন" required oninput="showLedgerNameSuggestions()" autocomplete="off">
+                <div id="ledger-name-dropdown" class="product-dropdown"></div>
+                <small style="color:#64748b;margin-top:4px;display:block;">💡 কাস্টমার তালিকা থেকে সিলেক্ট করতে পারেন</small>
+            </div>
             <div class="form-group"><label>মোবাইল নাম্বার</label><input type="text" id="ledger-phone" placeholder="মোবাইল নাম্বার"></div>
             <div class="form-group"><label>বাকি টাকার পরিমাণ</label><input type="number" id="ledger-amount" placeholder="0" required step="any"></div>
             <button type="submit" id="ledger-submit-btn" class="primary-btn" style="background-color:#16a34a;">📖 বাকি এন্ট্রি করুন</button>
@@ -8467,6 +8472,7 @@ function resetLedgerForm() {
     document.getElementById('ledger-edit-banner').style.display='none';
     document.getElementById('ledger-submit-btn').textContent='📖 বাকি এন্ট্রি করুন';
     document.getElementById('ledger-submit-btn').style.backgroundColor='#16a34a';
+    hideLedgerNameDropdown();
     loadLedgerTable();
 }
 async function deleteLedger(id) {
@@ -8488,9 +8494,65 @@ function saveLedger(e) {
         db.ledgers.push({id:Date.now(),date,name,phone,amount});
         saveDB(db); showToast('বাকি এন্ট্রি হয়েছে!','success');
         ['ledger-name','ledger-phone','ledger-amount'].forEach(id=>document.getElementById(id).value='');
+        hideLedgerNameDropdown();
         loadLedgerTable();
     }
 }
+// ===== LEDGER NAME SUGGESTIONS (কাস্টমার তালিকা থেকে) =====
+function showLedgerNameSuggestions() {
+    const db=loadDB();
+    const input=document.getElementById('ledger-name');
+    const query=input.value.toLowerCase().trim();
+    const dropdown=document.getElementById('ledger-name-dropdown');
+
+    // গ্রাহক তালিকা এবং পূর্বের বাকি খাতা এন্ট্রি থেকে নাম একত্র করা
+    const custNames=(db.customers||[]).map(c=>({name:c.name,phone:c.phone||''}));
+    const ledgerNames=(db.ledgers||[]).map(l=>({name:l.name,phone:l.phone||''}));
+    const map={};
+    custNames.concat(ledgerNames).forEach(p=>{ if(p.name && !map[p.name]) map[p.name]=p.phone; });
+    const allNames=Object.keys(map).sort();
+
+    if(query.length===0 || allNames.length===0) {
+        hideLedgerNameDropdown();
+        return;
+    }
+
+    const matches=allNames.filter(name=>name.toLowerCase().includes(query));
+    if(matches.length===0) {
+        hideLedgerNameDropdown();
+        return;
+    }
+
+    dropdown.innerHTML=matches.map(name=>{
+        const entries=(db.ledgers||[]).filter(l=>l.name===name);
+        const totalDue=entries.reduce((s,l)=>s+Math.max(0,(l.amount||0)-(l.paid||0)),0);
+        return `<div class="product-dropdown-item" onclick="selectLedgerName('${name.replace(/'/g, "\\'")}','${(map[name]||'').replace(/'/g, "\\'")}')">
+            <div class="pd-name">👤 ${name}</div>
+            <div class="pd-info">
+                <span class="pd-stock">${entries.length} টি এন্ট্রি</span>
+                <span class="pd-buy">বাকি: ${totalDue.toFixed(0)} ৳</span>
+            </div>
+        </div>`;
+    }).join('');
+
+    dropdown.classList.add('show');
+}
+function selectLedgerName(name, phone) {
+    document.getElementById('ledger-name').value=name;
+    if(phone) document.getElementById('ledger-phone').value=phone;
+    hideLedgerNameDropdown();
+}
+function hideLedgerNameDropdown() {
+    document.getElementById('ledger-name-dropdown').classList.remove('show');
+}
+document.addEventListener('click', function(e) {
+    const ledgerNameWrap=document.getElementById('ledger-name');
+    const dropdown=document.getElementById('ledger-name-dropdown');
+    if(ledgerNameWrap && dropdown && !ledgerNameWrap.contains(e.target) && !dropdown.contains(e.target)) {
+        hideLedgerNameDropdown();
+    }
+});
+
 function loadLedgerTable() {
     const db=loadDB(); const tbody=document.getElementById('ledger-table-body');
     const totalRemaining=db.ledgers.reduce((s,l)=>s+((l.amount||0)-(l.paid||0)),0);
@@ -8500,11 +8562,13 @@ function loadLedgerTable() {
         const paid=l.paid||0;
         const remaining=Math.max(0,(l.amount||0)-paid);
         const isPaidFull=remaining<=0;
-        const paymentHistory=(l.payments||[]).map(p=>`<div class="payment-history-item"><span>${p.date}</span><span style="color:#16a34a;font-weight:700;">+ ${p.amount.toFixed(2)} ৳</span></div>`).join('');
+        const paymentHistory=(l.payments||[]).map(p=>`<div class="payment-history-item"><span>${p.date}</span><span style="color:#16a34a;font-weight:700;">− ${p.amount.toFixed(2)} ৳ (পরিশোধ)</span></div>`).join('');
+        const dueHistory=(l.dueHistory||[]).map(d=>`<div class="payment-history-item"><span>${d.date}</span><span style="color:#dc2626;font-weight:700;">+ ${d.amount.toFixed(2)} ৳ (নতুন ধার)</span></div>`).join('');
+        const combinedHistory=paymentHistory+dueHistory;
         return`
         <tr style="${editingLedgerId===l.id?'background:#fef9c3;':''}${isPaidFull?'opacity:0.6;':''}">
             <td style="white-space:nowrap;">${l.date}${l.phone?'<br><small style="color:#64748b;">📞 '+l.phone+'</small>':''}
-                ${paymentHistory?'<div class="payment-history">'+paymentHistory+'</div>':''}
+                ${combinedHistory?'<div class="payment-history">'+combinedHistory+'</div>':''}
             </td>
             <td><b>${l.name}</b>${isPaidFull?'<br><span style="color:#16a34a;font-size:11px;font-weight:700;">✅ পরিশোধিত</span>':''}</td>
             <td style="text-align:right;">
@@ -8513,7 +8577,8 @@ function loadLedgerTable() {
                 ${remaining>0?'<span class="remaining-badge">বাকি: '+remaining.toFixed(2)+' ৳</span>':''}
             </td>
             <td style="text-align:center;white-space:nowrap;">
-                ${remaining>0?'<button onclick="addPartialPayment('+l.id+')" class="paid-full-btn" title="আংশিক পরিশোধ">💰</button>':''}
+                <button onclick="addNewDue(${l.id})" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;border-radius:6px;padding:5px 8px;cursor:pointer;font-weight:700;font-size:12px;" title="আজকের নতুন ধার যোগ করুন">➕ ধার</button>
+                ${remaining>0?'<button onclick="addPartialPayment('+l.id+')" class="paid-full-btn" title="আংশিক পরিশোধ" style="margin-left:4px;">💰</button>':''}
                 ${remaining>0?'<button onclick="markAsPaid('+l.id+')" style="background:#0284c7;color:#fff;border:none;border-radius:6px;padding:5px 8px;cursor:pointer;font-weight:700;font-size:12px;margin-left:4px;" title="পূর্ণ পরিশোধ">✅</button>':''}
                 <button onclick="editLedger(${l.id})" style="background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:6px;padding:4px 8px;cursor:pointer;font-weight:700;font-size:12px;margin-left:4px;">✏️</button>
                 <button onclick="deleteLedger(${l.id})" style="background:#fee2e2;color:#dc2626;border:1px solid #fecaca;border-radius:6px;padding:4px 8px;cursor:pointer;font-weight:700;font-size:12px;margin-left:4px;">🗑️</button>
@@ -8521,6 +8586,7 @@ function loadLedgerTable() {
         </tr>`;
     }).join('')+(totalRemaining>0?`<tr style="background:#fef9c3;font-weight:800;"><td colspan="2" style="padding:8px 10px;">সর্বমোট বাকি (পরিশোধ বাদে)</td><td style="text-align:right;color:#854d0e;padding:8px 10px;">${totalRemaining.toFixed(2)} ৳</td><td></td></tr>`:'');
 }
+
 
 // ═══════════════════════════════════════════
 // EXPENSES
@@ -8885,10 +8951,12 @@ function loadReport() {
         const totalCommission=dayCommissions.reduce((s,x)=>s+(x.amount||0),0);
         const totalPurchaseAmount=dayPurchases.reduce((s,x)=>s+((x.buyPrice||0)*(x.qty||0)),0);
         const totalDayPaona=dayPaona.reduce((s,x)=>s+(x.amount||0),0);
-        // দিনের শুরু মোট = ব্যালেন্স উপমোট + পাওনা − উক্ত দিনের ক্রয়
-        const dayStartTotal=startBal+tPawona-totalPurchaseAmount;
-        // দিনের শেষ মোট = ব্যালেন্স উপমোট + পরিশোধ উপমোট + খরচ উপমোট
-        const dayEndTotal=endBal+tPorishod+totalExpenses;
+        // বাকি পরিশোধ = এই তারিখে কোনো বাকির (ledger) বিপরীতে করা পরিশোধ
+        const totalLedgerPaid=db.ledgers.reduce((s,l)=>s+((l.payments||[]).filter(p=>p.date===fd).reduce((ps,p)=>ps+(p.amount||0),0)),0);
+        // দিনের শুরু মোট = ব্যালেন্স উপমোট + পাওনা − উক্ত দিনের ক্রয় − নতুন বাকি
+        const dayStartTotal=startBal+tPawona-totalPurchaseAmount-totalLedger;
+        // দিনের শেষ মোট = ব্যালেন্স উপমোট + পরিশোধ উপমোট + খরচ উপমোট + বাকি পরিশোধ
+        const dayEndTotal=endBal+tPorishod+totalExpenses+totalLedgerPaid;
         const dayEndGrandTotal=daySales.reduce((s,x)=>s+(x.netAmount||x.amount||0),0);
         // আজকের লাভ = দিনের শেষ মোট − দিনের শুরু মোট
         const netIncome=dayEndTotal-dayStartTotal;
@@ -8919,6 +8987,7 @@ function loadReport() {
                     <thead><tr style="background:#f0fdf4;"><th style="text-align:left;padding:8px 12px;color:#166534;">বিবরণ</th><th style="text-align:right;padding:8px 12px;color:#166534;">পরিমাণ</th></tr></thead>
                     <tbody>${startBalRows}
                         <tr style="background:#dcfce7;border-top:2px solid #bbf7d0;"><td style="padding:7px 12px;font-weight:800;color:#15803d;">ব্যালেন্স উপমোট</td><td style="text-align:right;padding:7px 12px;font-weight:800;color:#15803d;">${startBal.toFixed(2)} ৳</td></tr>
+                        ${totalLedger>0?`<tr style="background:#fef9c3;"><td style="padding:8px 12px;font-weight:700;color:#dc2626;">(−) 📖 নতুন বাকি বিয়োগ</td><td style="text-align:right;padding:8px 12px;font-weight:700;color:#dc2626;">− ${totalLedger.toFixed(2)} ৳</td></tr>`:''}
                         <tr style="background:#f8fafc;"><td colspan="2" style="padding:7px 12px;font-weight:700;color:#16a34a;border-top:2px dashed #bbf7d0;">💰 পাওনা (Receivables)</td></tr>
                         ${pawonaRows}
                         ${pawona.length>0?`<tr style="background:#bbf7d0;"><td style="padding:6px 12px;font-weight:700;color:#15803d;">পাওনা উপমোট</td><td style="text-align:right;padding:6px 12px;font-weight:700;color:#15803d;">${tPawona.toFixed(2)} ৳</td></tr>`:''}
@@ -8936,6 +9005,7 @@ function loadReport() {
                     <thead><tr style="background:#eff6ff;"><th style="text-align:left;padding:8px 12px;color:#1e40af;">বিবরণ</th><th style="text-align:right;padding:8px 12px;color:#1e40af;">পরিমাণ</th></tr></thead>
                     <tbody>${endBalRows}
                         <tr style="background:#dbeafe;border-top:2px solid #bfdbfe;"><td style="padding:7px 12px;font-weight:800;color:#1e40af;">ব্যালেন্স উপমোট</td><td style="text-align:right;padding:7px 12px;font-weight:800;color:#1e40af;">${endBal.toFixed(2)} ৳</td></tr>
+                        ${totalLedgerPaid>0?`<tr style="background:#dcfce7;"><td style="padding:8px 12px;font-weight:700;color:#16a34a;">(+) 📖 বাকি পরিশোধ যোগ</td><td style="text-align:right;padding:8px 12px;font-weight:700;color:#16a34a;">+ ${totalLedgerPaid.toFixed(2)} ৳</td></tr>`:''}
                         <tr style="background:#f8fafc;"><td colspan="2" style="padding:7px 12px;font-weight:700;color:#1d4ed8;border-top:2px dashed #bfdbfe;">✅ পরিশোধ (Payments Made)</td></tr>
                         ${porishodRows}
                         ${porishod.length>0?`<tr style="background:#bfdbfe;border-top:1px solid #93c5fd;"><td style="padding:7px 12px;font-weight:800;color:#1e40af;">পরিশোধ উপমোট</td><td style="text-align:right;padding:7px 12px;font-weight:800;color:#1e40af;">${tPorishod.toFixed(2)} ৳</td></tr>`:''}
@@ -8955,6 +9025,7 @@ function loadReport() {
                     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#fff;border-radius:8px;border:1px solid #e2e8f0;"><span>📈 মোট লাভ</span><b style="color:#10b981;">${totalProfit.toFixed(2)} ৳</b></div>
                     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#fff;border-radius:8px;border:1px solid #e2e8f0;"><span>💸 মোট খরচ</span><b style="color:#ef4444;">${totalExpenses.toFixed(2)} ৳</b></div>
                     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#fff;border-radius:8px;border:1px solid #e2e8f0;"><span>📖 নতুন বাকি</span><b>${totalLedger.toFixed(2)} ৳</b></div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#fff;border-radius:8px;border:1px solid #e2e8f0;"><span>📖 বাকি পরিশোধ</span><b style="color:#16a34a;">${totalLedgerPaid.toFixed(2)} ৳</b></div>
                     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#fff;border-radius:8px;border:1px solid #e2e8f0;"><span>📖 নেট ধার (পাওনা − পরিশোধ)</span><b style="color:#7c3aed;">${(tPawona-tPorishod).toFixed(2)} ৳</b></div>
                     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#fff;border-radius:8px;border:1px solid #e2e8f0;"><span>🤝 বিক্রয় ব্যয়না</span><b style="color:#9a3412;">${totalCommission.toFixed(2)} ৳</b></div>
                     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#fff;border-radius:8px;border:1px solid #e2e8f0;"><span>🚚 মাল ক্রয়</span><b style="color:#1e40af;">${totalPurchaseAmount.toFixed(2)} ৳</b></div>
@@ -9000,9 +9071,13 @@ function loadReport() {
             const tPw=pw.reduce((s,p)=>s+(p.amount||0),0); const tPs=ps.reduce((s,p)=>s+(p.amount||0),0);
             const dCom=(db.commissions||[]).filter(c=>c.date===date).reduce((s,x)=>s+(x.amount||0),0);
             const dPur=(db.purchases||[]).filter(p=>p.date===date).reduce((s,x)=>s+((x.buyPrice||0)*(x.qty||0)),0);
-            const st=sumBal(db.dayStart[date])+tPw;
-            const et=sumBal(db.dayEnd[date])+tPs+dExp+dProfit+dPur-dCom;
-            const di=et-(st+dSaleAmt); mStart+=st; mEnd+=et; mTotalIncome+=di;
+            const dLedgerNew=(db.ledgers||[]).filter(l=>l.date===date).reduce((s,x)=>s+(x.amount||0),0);
+            const dLedgerPaid=(db.ledgers||[]).reduce((s,l)=>s+((l.payments||[]).filter(p=>p.date===date).reduce((ps,p)=>ps+(p.amount||0),0)),0);
+            // দিনের শুরু মোট = ব্যালেন্স উপমোট + পাওনা − ক্রয় − নতুন বাকি
+            const st=sumBal(db.dayStart[date])+tPw-dPur-dLedgerNew;
+            // দিনের শেষ মোট = ব্যালেন্স উপমোট + পরিশোধ + খরচ + বাকি পরিশোধ
+            const et=sumBal(db.dayEnd[date])+tPs+dExp+dLedgerPaid;
+            const di=et-st; mStart+=st; mEnd+=et; mTotalIncome+=di;
             return`<tr><td style="white-space:nowrap;">${date}</td><td style="text-align:right;">${dSaleAmt.toFixed(0)}</td><td style="text-align:right;color:#10b981;">${dProfit.toFixed(0)}</td><td style="text-align:right;color:#ef4444;">${dExp.toFixed(0)}</td><td style="text-align:right;">${st.toFixed(0)}</td><td style="text-align:right;">${et.toFixed(0)}</td><td style="text-align:right;font-weight:700;color:${di>=0?'#16a34a':'#dc2626'};">${di.toFixed(0)}</td></tr>`;
         }).join(''):`<tr><td colspan="7" style="text-align:center;padding:20px;color:#94a3b8;">এই মাসে কোনো ডেটা নেই</td></tr>`;
 
@@ -9229,15 +9304,18 @@ function updateDashboardSummary() {
         const dayExp=db.expenses.filter(e=>e.date===fd);
         const dayCommissions=db.commissions.filter(c=>c.date===fd);
         const dayPurchases=db.purchases.filter(p=>p.date===fd);
+        const dayLedgers=db.ledgers.filter(l=>l.date===fd);
         const fdProfit=(db.salesProfit&&db.salesProfit[fd])?db.salesProfit[fd]:daySales.reduce((s,x)=>s+(x.profit||0),0);
         const fdExpenses=dayExp.reduce((s,x)=>s+(x.amount||0),0);
         const fdCommission=dayCommissions.reduce((s,x)=>s+(x.amount||0),0);
         const fdPurchaseAmt=dayPurchases.reduce((s,x)=>s+((x.buyPrice||0)*(x.qty||0)),0);
         const fdDaySalesTotal=daySales.reduce((s,x)=>s+(x.amount||0),0);
-        // দিনের শুরু মোট = ব্যালেন্স উপমোট + পাওনা − উক্ত দিনের ক্রয়
-        const fdDayStartTotal=startBal+tPawona-fdPurchaseAmt;
-        // দিনের শেষ মোট = ব্যালেন্স উপমোট + পরিশোধ উপমোট + খরচ উপমোট
-        const fdDayEndTotal=endBal+tPorishod+fdExpenses;
+        const fdLedgerNew=dayLedgers.reduce((s,x)=>s+(x.amount||0),0);
+        const fdLedgerPaid=db.ledgers.reduce((s,l)=>s+((l.payments||[]).filter(p=>p.date===fd).reduce((ps,p)=>ps+(p.amount||0),0)),0);
+        // দিনের শুরু মোট = ব্যালেন্স উপমোট + পাওনা − উক্ত দিনের ক্রয় − নতুন বাকি
+        const fdDayStartTotal=startBal+tPawona-fdPurchaseAmt-fdLedgerNew;
+        // দিনের শেষ মোট = ব্যালেন্স উপমোট + পরিশোধ উপমোট + খরচ উপমোট + বাকি পরিশোধ
+        const fdDayEndTotal=endBal+tPorishod+fdExpenses+fdLedgerPaid;
         // আজকের ইনকাম = দিনের শেষ মোট − দিনের শুরু মোট
         todayIncome += fdDayEndTotal - fdDayStartTotal;
     });
@@ -9252,7 +9330,9 @@ function updateDashboardSummary() {
     document.getElementById('sum-purchase').textContent   = totalPurchase.toFixed(0)+' ৳';
     document.getElementById('sum-ledger').textContent     = Math.max(0,totalLedger).toFixed(0)+' ৳';
     document.getElementById('sum-paona').textContent      = Math.max(0,totalPaona).toFixed(0)+' ৳';
-    document.getElementById('sum-income').textContent     = Math.max(0,todayIncome).toFixed(0)+' ৳';
+    const sumIncomeEl = document.getElementById('sum-income');
+    sumIncomeEl.textContent = todayIncome.toFixed(0)+' ৳';
+    sumIncomeEl.style.color = todayIncome < 0 ? '#dc2626' : '';
 
     // দৈনিক ইনকাম (dailyIncomes টেবিল থেকে)
     const filtDailyIncome = (db.dailyIncomes||[]).filter(x=>inRange(x.date));
@@ -9564,10 +9644,12 @@ function buildDailyReportHTML(fd) {
     const totalLedger = dayLedgers.reduce((s,x)=>s+(x.amount||0),0);
     const totalCommission = dayCommissions.reduce((s,x)=>s+(x.amount||0),0);
     const totalPurchaseAmount = dayPurchases.reduce((s,x)=>s+((x.buyPrice||0)*(x.qty||0)),0);
-    // দিনের শুরু মোট = ব্যালেন্স উপমোট + পাওনা − উক্ত দিনের ক্রয়
-    const dayStartTotal = startBal + tPawona - totalPurchaseAmount;
-    // দিনের শেষ মোট = ব্যালেন্স উপমোট + পরিশোধ উপমোট + খরচ উপমোট
-    const dayEndTotal = endBal + tPorishod + totalExpenses;
+    // বাকি পরিশোধ = এই তারিখে কোনো বাকির (ledger) বিপরীতে করা পরিশোধ
+    const totalLedgerPaid = db.ledgers.reduce((s,l)=>s+((l.payments||[]).filter(p=>p.date===fd).reduce((ps,p)=>ps+(p.amount||0),0)),0);
+    // দিনের শুরু মোট = ব্যালেন্স উপমোট + পাওনা − উক্ত দিনের ক্রয় − নতুন বাকি
+    const dayStartTotal = startBal + tPawona - totalPurchaseAmount - totalLedger;
+    // দিনের শেষ মোট = ব্যালেন্স উপমোট + পরিশোধ উপমোট + খরচ উপমোট + বাকি পরিশোধ
+    const dayEndTotal = endBal + tPorishod + totalExpenses + totalLedgerPaid;
     const dayEndGrandTotal = daySales.reduce((s,x)=>s+(x.netAmount||x.amount||0),0);
     // আজকের লাভ = দিনের শেষ মোট − দিনের শুরু মোট
     const netIncome = dayEndTotal - dayStartTotal;
@@ -9636,9 +9718,13 @@ function buildMonthlyReportHTML(fm) {
         const tPw=pw.reduce((s,p)=>s+(p.amount||0),0); const tPs=ps.reduce((s,p)=>s+(p.amount||0),0);
         const dCom=(db.commissions||[]).filter(c=>c.date===date).reduce((s,x)=>s+(x.amount||0),0);
         const dPur=(db.purchases||[]).filter(p=>p.date===date).reduce((s,x)=>s+((x.buyPrice||0)*(x.qty||0)),0);
-        const st=sumBal(db.dayStart[date])+tPw;
-        const et=sumBal(db.dayEnd[date])+tPs+dExp+dProfit+dPur-dCom;
-        const di=et-(st+dSaleAmt); mStart+=st; mEnd+=et; mTotalIncome+=di;
+        const dLedgerNew=(db.ledgers||[]).filter(l=>l.date===date).reduce((s,x)=>s+(x.amount||0),0);
+        const dLedgerPaid=(db.ledgers||[]).reduce((s,l)=>s+((l.payments||[]).filter(p=>p.date===date).reduce((ps,p)=>ps+(p.amount||0),0)),0);
+        // দিনের শুরু মোট = ব্যালেন্স উপমোট + পাওনা − ক্রয় − নতুন বাকি
+        const st=sumBal(db.dayStart[date])+tPw-dPur-dLedgerNew;
+        // দিনের শেষ মোট = ব্যালেন্স উপমোট + পরিশোধ + খরচ + বাকি পরিশোধ
+        const et=sumBal(db.dayEnd[date])+tPs+dExp+dLedgerPaid;
+        const di=et-st; mStart+=st; mEnd+=et; mTotalIncome+=di;
         return `<tr><td>${date}</td><td style="text-align:right;">${dSaleAmt.toFixed(0)}</td><td style="text-align:right;color:#10b981;">${dProfit.toFixed(0)}</td><td style="text-align:right;color:#ef4444;">${dExp.toFixed(0)}</td><td style="text-align:right;">${st.toFixed(0)}</td><td style="text-align:right;">${et.toFixed(0)}</td><td style="text-align:right;font-weight:700;color:${di>=0?'#16a34a':'#dc2626'};">${di.toFixed(0)}</td></tr>`;
     }).join('') || `<tr><td colspan="7" style="text-align:center;padding:15px;color:#94a3b8;">এই মাসে কোনো ডেটা নেই</td></tr>`;
     const netIncome = mTotalIncome - totalProfit;
@@ -10505,6 +10591,19 @@ function addPartialPayment(id) {
     db.ledgers[idx].paid=(db.ledgers[idx].paid||0)+amt;
     saveDB(db); loadLedgerTable();
     showToast('৳'+amt.toFixed(2)+' পরিশোধ সেভ হয়েছে!','success');
+}
+function addNewDue(id) {
+    const amtStr = prompt('আজকের নতুন ধারের পরিমাণ লিখুন (টাকা):');
+    if(amtStr===null) return;
+    const amt = parseFloat(amtStr);
+    if(isNaN(amt)||amt<=0){showToast('সঠিক পরিমাণ লিখুন!','error');return;}
+    const db=loadDB(); const idx=db.ledgers.findIndex(l=>l.id===id);
+    if(idx===-1) return;
+    if(!db.ledgers[idx].dueHistory) db.ledgers[idx].dueHistory=[];
+    db.ledgers[idx].dueHistory.push({date:today(), amount:amt});
+    db.ledgers[idx].amount=(db.ledgers[idx].amount||0)+amt;
+    saveDB(db); loadLedgerTable();
+    showToast('৳'+amt.toFixed(2)+' নতুন ধার যোগ হয়েছে!','success');
 }
 async function markAsPaid(id) {
     if(!await showConfirm('এই বাকি পুরোপুরি পরিশোধ করা হয়েছে?')) return;
