@@ -872,9 +872,11 @@ setTimeout(hideLoadingScreen, 5000); // সর্বোচ্চ ৫ সেক�
     <div class="sidebar-item" onclick="openPage('day-start-page'); initDayStart(); setSidebarActive(this)"><span class="si-icon">🌅</span> <span data-i18n="day_start">দিনের শুরু</span></div>
     <div class="sidebar-item" onclick="openPage('purchase-page'); initPurchasePage(); setSidebarActive(this)"><span class="si-icon">🚚</span> <span data-i18n="purchase">মাল ক্রয়</span></div>
     <div class="sidebar-item" onclick="openPage('product-page'); loadStockTable(); setSidebarActive(this)"><span class="si-icon">📦</span> <span data-i18n="stock">স্টক</span></div>
+    <div class="sidebar-item" onclick="openPage('use-page'); initUsePage(); loadUseTable(); setSidebarActive(this)"><span class="si-icon">🧰</span> <span data-i18n="stock_use">ব্যবহার</span></div>
     <div class="sidebar-item" onclick="openPage('sale-page'); initSalePage(); setSidebarActive(this)"><span class="si-icon">🛒</span> <span data-i18n="new_sale">নতুন বিক্রি</span></div>
     <div class="sidebar-item" onclick="openPage('sale-return-page'); initSaleReturnPage(); setSidebarActive(this)"><span class="si-icon">🔄</span> <span data-i18n="sale_return">বিক্রয় রিটান</span></div>
     <div class="sidebar-item" onclick="openPage('daily-income-page'); loadDailyIncomeTable(); setSidebarActive(this)"><span class="si-icon">💵</span> <span data-i18n="daily_income">দৈনিক ইনকাম</span></div>
+    <div class="sidebar-item" onclick="openPage('savings-page'); initSavingsPage(); loadSavingsTable(); setSidebarActive(this)"><span class="si-icon">🐖</span> <span data-i18n="savings">জমা</span></div>
     <div class="sidebar-item" onclick="openPage('cash-page'); loadExpenseTable(); setSidebarActive(this)" style="background:linear-gradient(90deg,rgba(220,38,38,0.13),transparent);border-left:3px solid #dc2626;font-weight:700;"><span class="si-icon">💸</span> <span data-i18n="expense_entry">খরচ এন্ট্রি</span></div>
     <div class="sidebar-item" onclick="openPage('report-page'); loadReport(); setSidebarActive(this)" style="background:linear-gradient(90deg,rgba(16,185,129,0.13),transparent);border-left:3px solid #10b981;font-weight:700;"><span class="si-icon">📈</span> <span data-i18n="income_expense_report">আয়-<span data-i18n="expense_report">ব্যয় রিপোর্ট</span></span></div>
     <!-- প্রতিবেদন টগল বাটন -->
@@ -1246,6 +1248,7 @@ setTimeout(hideLoadingScreen, 5000); // সর্বোচ্চ ৫ সেক�
             <div class="summary-card" style="background:#ecfdf5;border:1px solid #6ee7b7;color:#047857;"><div class="s-label" id="lbl-income">💰 আজকের ইনকাম</div><div class="s-value" id="sum-income">0 ৳</div></div>
             <div class="summary-card" style="background:#f0fdfa;border:1px solid #5eead4;color:#0f766e;"><div class="s-label" id="lbl-daily-income">💵 দৈনিক ইনকাম</div><div class="s-value" id="sum-daily-income">0 ৳</div></div>
             <div class="summary-card" style="background:#eef2ff;border:1px solid #a5b4fc;color:#4338ca;"><div class="s-label" id="lbl-total-income">🧮 আজকের মোট ইনকাম</div><div class="s-value" id="sum-total-income">0 ৳</div></div>
+            <div class="summary-card" style="background:#fdf4ff;border:1px solid #e9d5ff;color:#86198f;cursor:pointer;" onclick="toggleJamaVisibility()" title="দেখতে ক্লিক করুন"><div class="s-label" id="lbl-total-jama">🐖 মোট জমা</div><div class="s-value" id="sum-total-jama" data-real="0 ৳" data-revealed="0">👁️ ক্লিক করুন</div></div>
         </div>
         <!-- নেট ইনকাম কার্ড (full width) -->
         <div id="net-income-card" style="background:linear-gradient(135deg,#1e3c72,#2a5298);color:#fff;border-radius:12px;padding:16px 20px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 14px rgba(30,60,114,0.2);">
@@ -2917,6 +2920,122 @@ setTimeout(hideLoadingScreen, 5000); // সর্বোচ্চ ৫ সেক�
         <p id="di-empty-msg" style="text-align:center;color:#94a3b8;padding:20px;display:none;">কোনো এন্ট্রি নেই</p>
     </div>
 
+    <!-- জমা -->
+    <div id="savings-page" class="hidden">
+        <button class="primary-btn back-btn" onclick="backToDashboard()">← ড্যাশবোর্ড</button>
+        <h3>🐖 জমা</h3>
+        <div id="sv-edit-banner" class="edit-mode-banner" style="display:none;">
+            <span style="font-weight:700;color:#92400e;font-size:14px;">✏️ সম্পাদনা মোড চলছে</span>
+            <button onclick="resetSavingForm()" class="cancel-edit-btn">বাতিল ✕</button>
+        </div>
+        <br>
+        <form onsubmit="return saveSaving(event)" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:18px;margin-bottom:18px;">
+            <div style="margin-bottom:12px;">
+                <label style="font-weight:600;font-size:14px;color:#334155;">📅 তারিখ</label>
+                <input type="date" id="sv-date" required style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box;">
+            </div>
+            <div style="margin-bottom:12px;">
+                <label style="font-weight:600;font-size:14px;color:#334155;">📝 নোট (ঐচ্ছিক)</label>
+                <input type="text" id="sv-note" placeholder="যেমন: দৈনিক জমা" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box;">
+            </div>
+            <div style="margin-bottom:12px;">
+                <label style="font-weight:600;font-size:14px;color:#334155;">💰 টাকা (৳)</label>
+                <input type="number" id="sv-amount" min="0" step="0.01" placeholder="০.০০" required style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box;">
+            </div>
+            <button type="submit" class="primary-btn" id="sv-submit-btn" style="background:#16a34a;width:100%;margin-top:6px;">💾 জমা করুন</button>
+            <input type="hidden" id="sv-edit-id" value="">
+        </form>
+
+        <!-- ফিল্টার -->
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+            <label style="font-weight:600;font-size:13px;color:#334155;">📅 তারিখ ফিল্টার:</label>
+            <input type="date" id="sv-filter-date" onchange="loadSavingsTable()" style="padding:7px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;">
+            <button onclick="document.getElementById('sv-filter-date').value='';loadSavingsTable()" style="padding:7px 12px;background:#e2e8f0;border:none;border-radius:8px;font-size:13px;cursor:pointer;font-weight:600;">সব দেখুন</button>
+        </div>
+
+        <!-- সারসংক্ষেপ -->
+        <div id="sv-summary" style="background:linear-gradient(135deg,#1e3c72,#2a5298);color:#fff;border-radius:10px;padding:14px 18px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-size:14px;font-weight:600;">🐖 মোট জমা</div>
+            <div id="sv-total" style="font-size:22px;font-weight:900;">০ ৳</div>
+        </div>
+
+        <!-- টেবিল -->
+        <div style="overflow-x:auto;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width:32px;">#</th>
+                        <th>📅 তারিখ</th>
+                        <th>📝 নোট</th>
+                        <th>💰 টাকা (৳)</th>
+                        <th style="width:80px;">কাজ</th>
+                    </tr>
+                </thead>
+                <tbody id="sv-table-body"></tbody>
+            </table>
+        </div>
+        <p id="sv-empty-msg" style="text-align:center;color:#94a3b8;padding:20px;display:none;">কোনো জমা এন্ট্রি নেই</p>
+    </div>
+
+    <!-- পণ্য ব্যবহার (দোকানের জন্য স্টক থেকে ব্যবহার) -->
+    <div id="use-page" class="hidden">
+        <button class="primary-btn back-btn" onclick="backToDashboard()">← ড্যাশবোর্ড</button>
+        <h3>🧰 পণ্য ব্যবহার</h3>
+        <div id="use-edit-banner" class="edit-mode-banner" style="display:none;">
+            <span style="font-weight:700;color:#92400e;font-size:14px;">✏️ সম্পাদনা মোড চলছে</span>
+            <button onclick="resetUseForm()" class="cancel-edit-btn">বাতিল ✕</button>
+        </div>
+        <br>
+        <form onsubmit="return saveUse(event)" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:18px;margin-bottom:18px;">
+            <div style="margin-bottom:12px;">
+                <label style="font-weight:600;font-size:14px;color:#334155;">📅 তারিখ</label>
+                <input type="date" id="use-date" required style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box;">
+            </div>
+            <div style="margin-bottom:12px;">
+                <label style="font-weight:600;font-size:14px;color:#334155;">📦 পণ্য নির্বাচন করুন</label>
+                <select id="use-product" required onchange="onUseProductChange()" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box;">
+                    <option value="">-- পণ্য বাছাই করুন --</option>
+                </select>
+                <div id="use-stock-info" style="font-size:12px;color:#64748b;margin-top:4px;"></div>
+            </div>
+            <div style="margin-bottom:12px;">
+                <label style="font-weight:600;font-size:14px;color:#334155;">🔢 ব্যবহারের পরিমাণ</label>
+                <input type="number" id="use-qty" min="1" step="1" placeholder="যেমন: ১" required style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box;">
+            </div>
+            <div style="margin-bottom:12px;">
+                <label style="font-weight:600;font-size:14px;color:#334155;">📝 কারণ / নোট (ঐচ্ছিক)</label>
+                <input type="text" id="use-note" placeholder="যেমন: দোকানের কাজে ব্যবহার" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px;margin-top:4px;box-sizing:border-box;">
+            </div>
+            <button type="submit" class="primary-btn" id="use-submit-btn" style="background:#7c3aed;width:100%;margin-top:6px;">💾 ব্যবহার সেভ করুন</button>
+            <input type="hidden" id="use-edit-id" value="">
+        </form>
+
+        <!-- ফিল্টার -->
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+            <label style="font-weight:600;font-size:13px;color:#334155;">📅 তারিখ ফিল্টার:</label>
+            <input type="date" id="use-filter-date" onchange="loadUseTable()" style="padding:7px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:13px;">
+            <button onclick="document.getElementById('use-filter-date').value='';loadUseTable()" style="padding:7px 12px;background:#e2e8f0;border:none;border-radius:8px;font-size:13px;cursor:pointer;font-weight:600;">সব দেখুন</button>
+        </div>
+
+        <!-- টেবিল -->
+        <div style="overflow-x:auto;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width:32px;">#</th>
+                        <th>📅 তারিখ</th>
+                        <th>📦 পণ্য</th>
+                        <th>🔢 পরিমাণ</th>
+                        <th>📝 নোট</th>
+                        <th style="width:80px;">কাজ</th>
+                    </tr>
+                </thead>
+                <tbody id="use-table-body"></tbody>
+            </table>
+        </div>
+        <p id="use-empty-msg" style="text-align:center;color:#94a3b8;padding:20px;display:none;">কোনো ব্যবহার এন্ট্রি নেই</p>
+    </div>
+
     <!-- খরচ -->
     <div id="cash-page" class="hidden">
         <button class="primary-btn back-btn" onclick="backToDashboard()">← ড্যাশবোর্ড</button>
@@ -3590,6 +3709,7 @@ function startFirestoreSync() {
                 commissions:remote.commissions|| local.commissions|| [],
                 paonaNotebook: remote.paonaNotebook || local.paonaNotebook || [],
                 dailyIncomes: remote.dailyIncomes || local.dailyIncomes || [],
+                stockUse:   remote.stockUse   || local.stockUse   || [],
             };
             try {
                 const cacheData = { ...merged, products: merged.products.map(p => ({...p, image: p.image ? 'idb:prod_'+p.id : ''})) };
@@ -3775,8 +3895,8 @@ function loadDB() {
     try {
         const r = localStorage.getItem(getActiveDBKey());
         const p = r ? JSON.parse(r) : {};
-        return { dayStart:p.dayStart||{}, dayEnd:p.dayEnd||{}, pawona:p.pawona||{}, porishod:p.porishod||{}, products:p.products||[], sales:p.sales||[], ledgers:p.ledgers||[], expenses:p.expenses||[], purchases:p.purchases||[], commissions:p.commissions||[], paonaNotebook:p.paonaNotebook||[], dailyIncomes:p.dailyIncomes||[], settings:p.settings||{}, taxes:p.taxes||[], units:p.units||[], paymentTypes:p.paymentTypes||[], currencies:p.currencies||[] };
-    } catch { return { dayStart:{}, dayEnd:{}, pawona:{}, porishod:{}, products:[], sales:[], ledgers:[], expenses:[], purchases:[], commissions:[], paonaNotebook:[], dailyIncomes:[], settings:{}, taxes:[], units:[], paymentTypes:[], currencies:[] }; }
+        return { dayStart:p.dayStart||{}, dayEnd:p.dayEnd||{}, pawona:p.pawona||{}, porishod:p.porishod||{}, products:p.products||[], sales:p.sales||[], ledgers:p.ledgers||[], expenses:p.expenses||[], purchases:p.purchases||[], commissions:p.commissions||[], paonaNotebook:p.paonaNotebook||[], dailyIncomes:p.dailyIncomes||[], savings:p.savings||[], settings:p.settings||{}, taxes:p.taxes||[], units:p.units||[], paymentTypes:p.paymentTypes||[], currencies:p.currencies||[], stockUse:p.stockUse||[] };
+    } catch { return { dayStart:{}, dayEnd:{}, pawona:{}, porishod:{}, products:[], sales:[], ledgers:[], expenses:[], purchases:[], commissions:[], paonaNotebook:[], dailyIncomes:[], savings:[], settings:{}, taxes:[], units:[], paymentTypes:[], currencies:[], stockUse:[] }; }
 }
 function loadUsers() { try { return JSON.parse(localStorage.getItem(USERS_KEY)||'[]'); } catch { return []; } }
 function saveUsers(u) { localStorage.setItem(USERS_KEY, JSON.stringify(u)); }
@@ -4228,6 +4348,7 @@ const I18N = {
   new_sale: { bn:'নতুন বিক্রি', en:'New Sale', ar:'بيع جديد', hi:'नई बिक्री', ur:'نئی فروخت' },
   sale_return: { bn:'বিক্রয় রিটান', en:'Sale Return', ar:'مرتجع المبيعات', hi:'बिक्री वापसी', ur:'فروخت کی واپسی' },
   daily_income: { bn:'দৈনিক ইনকাম', en:'Daily Income', ar:'الدخل اليومي', hi:'दैनिक आय', ur:'یومیہ آمدنی' },
+  savings: { bn:'জমা', en:'Savings', ar:'المدخرات', hi:'बचत', ur:'بچت' },
   expense_entry: { bn:'খরচ এন্ট্রি', en:'Expense Entry', ar:'إدخال المصروفات', hi:'खर्च प्रविष्टि', ur:'خرچ اندراج' },
   income_expense_report: { bn:'আয়-ব্যয় রিপোর্ট', en:'Income-Expense Report', ar:'تقرير الدخل والمصروفات', hi:'आय-व्यय रिपोर्ट', ur:'آمدنی اخراجات رپورٹ' },
   reports_label: { bn:'📊 প্রতিবেদন', en:'📊 Reports', ar:'📊 التقارير', hi:'📊 रिपोर्ट', ur:'📊 رپورٹس' },
@@ -4485,13 +4606,15 @@ function rejectUser(id) {
 // ═══════════════════════════════════════════
 // NAVIGATION
 // ═══════════════════════════════════════════
-const PAGES=['dashboard-section','day-start-page','product-page','purchase-page','sale-page','sale-return-page','sale-report-page','commission-page','ledger-page','paona-page','cash-page','daily-income-page','day-end-page','report-page','dash-gallery-page','profit-loss-page','sale-payment-report-page','purchase-report-page','purchase-return-report-page','seller-payment-report-page','supplier-item-report-page','sale-item-report-page','return-item-report-page','stock-report-page','expense-report-page','sale-payment-page','sale-return-report-page','customer-order-page','shop-settings-page','site-settings-page','sms-api-page','smtp-settings-page','tax-list-page','unit-list-page','payment-types-page','currency-list-page','change-password-page','db-backup-page','user-list-page','role-list-page','add-customer-page','customer-list-page','add-supplier-page','supplier-list-page','import-customer-page','import-supplier-page','add-account-page','account-list-page','transfer-list-page','deposit-list-page','cash-transaction-page','send-message-page','message-template-page','create-customer-coupon-page','customer-coupon-list-page','create-coupon-page','coupon-master-page','country-list-page','state-list-page','contact-info-page','auth-section'];
+const PAGES=['dashboard-section','day-start-page','product-page','purchase-page','sale-page','sale-return-page','sale-report-page','commission-page','ledger-page','paona-page','cash-page','daily-income-page','savings-page','use-page','day-end-page','report-page','dash-gallery-page','profit-loss-page','sale-payment-report-page','purchase-report-page','purchase-return-report-page','seller-payment-report-page','supplier-item-report-page','sale-item-report-page','return-item-report-page','stock-report-page','expense-report-page','sale-payment-page','sale-return-report-page','customer-order-page','shop-settings-page','site-settings-page','sms-api-page','smtp-settings-page','tax-list-page','unit-list-page','payment-types-page','currency-list-page','change-password-page','db-backup-page','user-list-page','role-list-page','add-customer-page','customer-list-page','add-supplier-page','supplier-list-page','import-customer-page','import-supplier-page','add-account-page','account-list-page','transfer-list-page','deposit-list-page','cash-transaction-page','send-message-page','message-template-page','create-customer-coupon-page','customer-coupon-list-page','create-coupon-page','coupon-master-page','country-list-page','state-list-page','contact-info-page','auth-section'];
 function openPage(id) { PAGES.forEach(p=>document.getElementById(p).classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); window.scrollTo(0,0);
     // ✅ পেজ খোলার সময় fresh data
     if(id === 'product-page')      { setTimeout(loadStockTable, 50); }
     if(id === 'dash-gallery-page') { setTimeout(renderDashProductGallery, 50); }
     if(id === 'purchase-page')     { setTimeout(refreshPurchaseDropdown, 50); }
     if(id === 'daily-income-page') { setTimeout(()=>{ initDailyIncomePage(); loadDailyIncomeTable(); }, 50); }
+    if(id === 'savings-page')      { setTimeout(()=>{ initSavingsPage(); loadSavingsTable(); }, 50); }
+    if(id === 'use-page')          { setTimeout(()=>{ initUsePage(); loadUseTable(); }, 50); }
     // ✅ রিপোর্ট পেজ লোডার
     if(id === 'profit-loss-page')          { setTimeout(loadProfitLoss, 50); }
     if(id === 'sale-payment-report-page')  { setTimeout(loadSalePaymentReport, 50); }
@@ -8773,6 +8896,255 @@ function deleteDailyIncome(id) {
     loadDailyIncomeTable();
 }
 
+// ═══════════════════════════════════════════
+// জমা (সেভিংস)
+// ═══════════════════════════════════════════
+function initSavingsPage() {
+    const dateEl = document.getElementById('sv-date');
+    if(dateEl && !dateEl.value) dateEl.value = today();
+}
+
+function saveSaving(e) {
+    if(e && e.preventDefault) e.preventDefault();
+    if(e && e.stopPropagation) e.stopPropagation();
+    const date = document.getElementById('sv-date').value;
+    const note = document.getElementById('sv-note').value.trim();
+    const amountRaw = document.getElementById('sv-amount').value;
+    const amount = parseFloat(amountRaw)||0;
+    const editId = document.getElementById('sv-edit-id').value;
+    if(!date) { showToast('❌ তারিখ দিন!','error'); return false; }
+    if(amount <= 0) { showToast('❌ সঠিক টাকার পরিমাণ দিন!','error'); return false; }
+    const db = loadDB();
+    if(!db.savings) db.savings = [];
+    if(editId) {
+        const idx = db.savings.findIndex(x=>x.id===editId);
+        if(idx>-1) db.savings[idx] = {id:editId, date, note, amount};
+        showToast('✅ জমা আপডেট হয়েছে!','success');
+    } else {
+        const newEntry = {id: Date.now().toString() + Math.random().toString(36).slice(2,6), date, note, amount};
+        db.savings.push(newEntry);
+        showToast('✅ জমা সেভ হয়েছে!','success');
+    }
+    saveDB(db);
+    resetSavingForm();
+    loadSavingsTable();
+    return false;
+}
+
+function resetSavingForm() {
+    document.getElementById('sv-date').value = today();
+    document.getElementById('sv-note').value = '';
+    document.getElementById('sv-amount').value = '';
+    document.getElementById('sv-edit-id').value = '';
+    document.getElementById('sv-edit-banner').style.display='none';
+    document.getElementById('sv-submit-btn').textContent='💾 জমা করুন';
+}
+
+function loadSavingsTable() {
+    const db = loadDB();
+    if(!db.savings) db.savings = [];
+    const filterDate = (document.getElementById('sv-filter-date')||{}).value||'';
+    const filtered = filterDate ? db.savings.filter(x=>x.date===filterDate) : db.savings;
+    const sorted = [...filtered].sort((a,b)=>b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+    const tbody = document.getElementById('sv-table-body');
+    const emptyMsg = document.getElementById('sv-empty-msg');
+    // মোট জমা সবসময় সব এন্ট্রির যোগফল দেখাবে (ফিল্টার নির্বিশেষে)
+    const grandTotal = db.savings.reduce((s,x)=>s+(parseFloat(x.amount)||0),0);
+    document.getElementById('sv-total').textContent = grandTotal.toLocaleString('bn-BD') + ' ৳';
+    if(!sorted.length) { tbody.innerHTML=''; emptyMsg.style.display='block'; return; }
+    emptyMsg.style.display='none';
+    tbody.innerHTML = sorted.map((item,i)=>`
+        <tr>
+            <td>${i+1}</td>
+            <td>${item.date}</td>
+            <td>${item.note||'-'}</td>
+            <td style="font-weight:700;color:#1e3c72;">${parseFloat(item.amount).toLocaleString('bn-BD')} ৳</td>
+            <td>
+                <button onclick="editSaving('${item.id}')" style="background:#f59e0b;color:#fff;border:none;border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;margin-right:3px;">✏️</button>
+                <button onclick="deleteSaving('${item.id}')" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;">🗑️</button>
+            </td>
+        </tr>`).join('');
+}
+
+function editSaving(id) {
+    const db = loadDB();
+    if(!db.savings) return;
+    const item = db.savings.find(x=>x.id===id);
+    if(!item) return;
+    document.getElementById('sv-date').value = item.date;
+    document.getElementById('sv-note').value = item.note||'';
+    document.getElementById('sv-amount').value = item.amount;
+    document.getElementById('sv-edit-id').value = id;
+    document.getElementById('sv-edit-banner').style.display='flex';
+    document.getElementById('sv-submit-btn').textContent='✅ আপডেট করুন';
+    window.scrollTo(0,0);
+}
+
+function deleteSaving(id) {
+    if(!confirm('এই জমা এন্ট্রি মুছে ফেলবেন?')) return;
+    const db = loadDB();
+    if(!db.savings) return;
+    db.savings = db.savings.filter(x=>x.id!==id);
+    saveDB(db); showToast('🗑️ এন্ট্রি মুছে ফেলা হয়েছে!','error');
+    loadSavingsTable();
+}
+
+// ═══════════════════════════════════════════
+// 🧰 পণ্য ব্যবহার (দোকানের নিজস্ব ব্যবহার — স্টক থেকে কমবে)
+// ═══════════════════════════════════════════
+function initUsePage() {
+    const dateEl = document.getElementById('use-date');
+    if(dateEl && !dateEl.value) dateEl.value = today();
+    const sel = document.getElementById('use-product');
+    if(sel) {
+        const db = loadDB();
+        const products = db.products || [];
+        const currentVal = sel.value;
+        sel.innerHTML = '<option value="">-- পণ্য বাছাই করুন --</option>' +
+            products.map(p=>`<option value="${p.id}">${p.name} (স্টক: ${p.qty})</option>`).join('');
+        if(currentVal) sel.value = currentVal;
+    }
+    onUseProductChange();
+}
+
+function onUseProductChange() {
+    const sel = document.getElementById('use-product');
+    const info = document.getElementById('use-stock-info');
+    if(!sel || !info) return;
+    const db = loadDB();
+    const p = (db.products||[]).find(x=>String(x.id)===String(sel.value));
+    info.textContent = p ? `বর্তমান স্টক: ${p.qty}` : '';
+}
+
+function saveUse(e) {
+    if(e && e.preventDefault) e.preventDefault();
+    if(e && e.stopPropagation) e.stopPropagation();
+    const date = document.getElementById('use-date').value;
+    const productId = document.getElementById('use-product').value;
+    const note = document.getElementById('use-note').value.trim();
+    const qty = parseInt(document.getElementById('use-qty').value)||0;
+    const editId = document.getElementById('use-edit-id').value;
+    if(!date) { showToast('❌ তারিখ দিন!','error'); return false; }
+    if(!productId) { showToast('❌ পণ্য নির্বাচন করুন!','error'); return false; }
+    if(qty <= 0) { showToast('❌ সঠিক পরিমাণ দিন!','error'); return false; }
+    const db = loadDB();
+    if(!db.products) db.products = [];
+    if(!db.stockUse) db.stockUse = [];
+    const prodIdx = db.products.findIndex(p=>String(p.id)===String(productId));
+    if(prodIdx === -1) { showToast('❌ পণ্য খুঁজে পাওয়া যায়নি!','error'); return false; }
+
+    if(editId) {
+        // আগের এন্ট্রি থাকলে প্রথমে সেই পরিমাণ স্টকে ফেরত দাও, তারপর নতুন পরিমাণ বাদ দাও
+        const oldEntry = db.stockUse.find(x=>x.id===editId);
+        if(oldEntry) {
+            const oldProdIdx = db.products.findIndex(p=>String(p.id)===String(oldEntry.productId));
+            if(oldProdIdx !== -1) db.products[oldProdIdx].qty = (parseFloat(db.products[oldProdIdx].qty)||0) + (parseFloat(oldEntry.qty)||0);
+        }
+        const freshProdIdx = db.products.findIndex(p=>String(p.id)===String(productId));
+        if((parseFloat(db.products[freshProdIdx].qty)||0) < qty) { showToast('❌ পর্যাপ্ত স্টক নেই!','error'); return false; }
+        db.products[freshProdIdx].qty = (parseFloat(db.products[freshProdIdx].qty)||0) - qty;
+        const idx = db.stockUse.findIndex(x=>x.id===editId);
+        const product = db.products[freshProdIdx];
+        if(idx>-1) db.stockUse[idx] = {id:editId, date, productId, productName:product.name, qty, note};
+        showToast('✅ ব্যবহার আপডেট হয়েছে!','success');
+    } else {
+        if((parseFloat(db.products[prodIdx].qty)||0) < qty) { showToast('❌ পর্যাপ্ত স্টক নেই!','error'); return false; }
+        db.products[prodIdx].qty = (parseFloat(db.products[prodIdx].qty)||0) - qty;
+        const product = db.products[prodIdx];
+        const newEntry = {id: Date.now().toString() + Math.random().toString(36).slice(2,6), date, productId, productName:product.name, qty, note};
+        db.stockUse.push(newEntry);
+        showToast('✅ ব্যবহার সেভ হয়েছে ও স্টক থেকে বাদ দেওয়া হয়েছে!','success');
+    }
+    saveDB(db);
+    resetUseForm();
+    loadUseTable();
+    if(typeof loadStockTable === 'function') loadStockTable();
+    return false;
+}
+
+function resetUseForm() {
+    document.getElementById('use-date').value = today();
+    document.getElementById('use-product').value = '';
+    document.getElementById('use-qty').value = '';
+    document.getElementById('use-note').value = '';
+    document.getElementById('use-edit-id').value = '';
+    document.getElementById('use-edit-banner').style.display='none';
+    document.getElementById('use-submit-btn').textContent='💾 ব্যবহার সেভ করুন';
+    initUsePage();
+}
+
+function loadUseTable() {
+    const db = loadDB();
+    if(!db.stockUse) db.stockUse = [];
+    const filterDate = (document.getElementById('use-filter-date')||{}).value||'';
+    const filtered = filterDate ? db.stockUse.filter(x=>x.date===filterDate) : db.stockUse;
+    const sorted = [...filtered].sort((a,b)=>b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+    const tbody = document.getElementById('use-table-body');
+    const emptyMsg = document.getElementById('use-empty-msg');
+    if(!tbody) return;
+    if(!sorted.length) { tbody.innerHTML=''; if(emptyMsg) emptyMsg.style.display='block'; return; }
+    if(emptyMsg) emptyMsg.style.display='none';
+    // তারিখ অনুসারে গ্রুপ করা
+    const groups = {};
+    sorted.forEach(item=>{ (groups[item.date] = groups[item.date]||[]).push(item); });
+    const dates = Object.keys(groups).sort((a,b)=>b.localeCompare(a));
+    let serial = 0;
+    let html = '';
+    dates.forEach(date=>{
+        const dayItems = groups[date];
+        const dayTotalQty = dayItems.reduce((s,x)=>s+(parseFloat(x.qty)||0),0);
+        html += `<tr style="background:#ede9fe;"><td colspan="6" style="padding:8px 10px;font-weight:800;color:#5b21b6;">📅 ${date} &nbsp;—&nbsp; মোট ব্যবহার: ${dayTotalQty}</td></tr>`;
+        dayItems.forEach(item=>{
+            serial++;
+            html += `
+        <tr>
+            <td>${serial}</td>
+            <td>${item.date}</td>
+            <td>${item.productName||'-'}</td>
+            <td style="font-weight:700;color:#7c3aed;">${item.qty}</td>
+            <td>${item.note||'-'}</td>
+            <td>
+                <button onclick="editUse('${item.id}')" style="background:#f59e0b;color:#fff;border:none;border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;margin-right:3px;">✏️</button>
+                <button onclick="deleteUse('${item.id}')" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;">🗑️</button>
+            </td>
+        </tr>`;
+        });
+    });
+    tbody.innerHTML = html;
+}
+
+function editUse(id) {
+    const db = loadDB();
+    if(!db.stockUse) return;
+    const item = db.stockUse.find(x=>x.id===id);
+    if(!item) return;
+    initUsePage();
+    document.getElementById('use-date').value = item.date;
+    document.getElementById('use-product').value = item.productId;
+    onUseProductChange();
+    document.getElementById('use-qty').value = item.qty;
+    document.getElementById('use-note').value = item.note||'';
+    document.getElementById('use-edit-id').value = id;
+    document.getElementById('use-edit-banner').style.display='flex';
+    document.getElementById('use-submit-btn').textContent='✅ আপডেট করুন';
+    window.scrollTo(0,0);
+}
+
+function deleteUse(id) {
+    if(!confirm('এই ব্যবহার এন্ট্রি মুছে ফেলবেন? (স্টক ফেরত যোগ হবে)')) return;
+    const db = loadDB();
+    if(!db.stockUse) return;
+    const item = db.stockUse.find(x=>x.id===id);
+    if(item) {
+        const prodIdx = (db.products||[]).findIndex(p=>String(p.id)===String(item.productId));
+        if(prodIdx !== -1) db.products[prodIdx].qty = (parseFloat(db.products[prodIdx].qty)||0) + (parseFloat(item.qty)||0);
+    }
+    db.stockUse = db.stockUse.filter(x=>x.id!==id);
+    saveDB(db); showToast('🗑️ এন্ট্রি মুছে ফেলা হয়েছে ও স্টক ফেরত যোগ হয়েছে!','error');
+    loadUseTable();
+    if(typeof loadStockTable === 'function') loadStockTable();
+}
+
 // dateFilter (YYYY-MM-DD) থাকলে সেটা অনুযায়ী, না থাকলে monthFilter (YYYY-MM) অনুযায়ী, দুটোই ফাঁকা হলে সব খরচ
 function getFilteredExpenses(db, dateFilter, monthFilter) {
     if(dateFilter) return db.expenses.filter(e=>e.date===dateFilter);
@@ -9263,6 +9635,19 @@ function refreshActivePageAfterSync() {
     } catch(e) {}
 }
 
+function toggleJamaVisibility() {
+    const el = document.getElementById('sum-total-jama');
+    if(!el) return;
+    const revealed = el.getAttribute('data-revealed') === '1';
+    if(revealed){
+        el.setAttribute('data-revealed', '0');
+        el.textContent = '👁️ ক্লিক করুন';
+    } else {
+        el.setAttribute('data-revealed', '1');
+        el.textContent = el.getAttribute('data-real') || '0 ৳';
+    }
+}
+
 function updateDashboardSummary() {
     const db = loadDB();
     const d = today();
@@ -9384,6 +9769,18 @@ function updateDashboardSummary() {
     const totalDailyIncome = filtDailyIncome.reduce((s,x)=>s+(parseFloat(x.amount)||0),0);
     const diEl = document.getElementById('sum-daily-income');
     if(diEl) diEl.textContent = totalDailyIncome.toFixed(0)+' ৳';
+
+    // মোট জমা (savings টেবিল থেকে সর্বমোট)
+    const totalJama = (db.savings||[]).reduce((s,x)=>s+(parseFloat(x.amount)||0),0);
+    const jamaEl = document.getElementById('sum-total-jama');
+    if(jamaEl){
+        jamaEl.setAttribute('data-real', totalJama.toFixed(0)+' ৳');
+        if(jamaEl.getAttribute('data-revealed')==='1'){
+            jamaEl.textContent = totalJama.toFixed(0)+' ৳';
+        } else {
+            jamaEl.textContent = '👁️ ক্লিক করুন';
+        }
+    }
 
     // আজকের মোট ইনকাম = নেট ইনকাম + আজকের লাভ
     const totalTodayIncome = netIncome + totalProfit;
