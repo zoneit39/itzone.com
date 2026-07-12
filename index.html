@@ -1427,7 +1427,13 @@ setTimeout(hideLoadingScreen, 5000); // সর্বোচ্চ ৫ সেক�
             <div class="form-group"><label>ক্রয় মূল্য (টাকা)</label><input type="number" id="prod-buy" placeholder="0" step="any" required></div>
             <div class="form-group"><label>বিক্রয় মূল্য (টাকা)</label><input type="number" id="prod-sell" placeholder="0" step="any" required></div>
             <div class="form-group"><label>পাইকারি বিক্রয় মূল্য (টাকা) (ঐচ্ছিক)</label><input type="number" id="prod-wholesale" placeholder="0" step="any"></div>
-            <div class="form-group"><label>স্টক পরিমাণ (Quantity)</label><input type="number" id="prod-qty" placeholder="0" required></div>
+            <div class="form-group"><label>স্টক পরিমাণ (Quantity)</label><input type="number" id="prod-qty" placeholder="0" required oninput="renderProdSerialInputs()"></div>
+            <div class="form-group"><label>🛡️ ওয়ারেন্টি (Warranty)</label><input type="text" id="prod-warranty" placeholder="যেমন: ৬ মাস, ১ বছর, নেই" autocomplete="off"></div>
+            <div class="form-group">
+                <label>🔢 সিরিয়াল নম্বর (Serial No) — পরিমাণ অনুযায়ী প্রতিটির জন্য আলাদা বক্স</label>
+                <div id="prod-serial-list" style="display:flex;flex-direction:column;gap:6px;"></div>
+                <small style="color:#64748b;margin-top:4px;display:block;">💡 আগে "স্টক পরিমাণ" ফিল্ডে সংখ্যা দিন — তাহলে ততগুলো সিরিয়াল বক্স এখানে চলে আসবে। প্রতিটি না জানা থাকলে খালিও রাখতে পারেন।</small>
+            </div>
             <div class="form-group"><label>ক্রয়ের বিস্তারিত বিবরণ (ঐচ্ছিক)</label><textarea id="prod-details" rows="2" placeholder="সাপ্লায়ারের নাম, মেমো নম্বর বা অন্যান্য তথ্য..."></textarea></div>
             <button type="submit" id="product-submit-btn" class="primary-btn" style="background-color:#16a34a;">💾 পণ্য সেভ করুন</button>
         </form>
@@ -1926,7 +1932,13 @@ setTimeout(hideLoadingScreen, 5000); // সর্বোচ্চ ৫ সেক�
                 <div class="form-group"><label>বিক্রয় মূল্য (টাকা)</label><input type="number" id="purchase-sell-price-exist" placeholder="0" step="any"></div>
                 <div class="form-group"><label>পাইকারি বিক্রয় মূল্য (টাকা)</label><input type="number" id="purchase-wholesale-price-exist" placeholder="0" step="any"></div>
             </div>
-            <div class="form-group"><label>পরিমাণ (Quantity)</label><input type="number" id="purchase-qty" placeholder="0" min="1"></div>
+            <div class="form-group"><label>পরিমাণ (Quantity)</label><input type="number" id="purchase-qty" placeholder="0" min="1" oninput="renderPurchaseSerialInputs()"></div>
+            <div class="form-group"><label>🛡️ ওয়ারেন্টি (Warranty)</label><input type="text" id="purchase-warranty" placeholder="যেমন: ৬ মাস, ১ বছর, নেই" autocomplete="off"></div>
+            <div class="form-group">
+                <label>🔢 সিরিয়াল নম্বর (Serial No) — পরিমাণ অনুযায়ী প্রতিটির জন্য আলাদা বক্স</label>
+                <div id="purchase-serial-list" style="display:flex;flex-direction:column;gap:6px;"></div>
+                <small style="color:#64748b;margin-top:4px;display:block;">💡 আগে "পরিমাণ" ফিল্ডে সংখ্যা দিন — তাহলে ততগুলো সিরিয়াল বক্স এখানে চলে আসবে। প্রতিটি না জানা থাকলে খালিও রাখতে পারেন।</small>
+            </div>
 
             <div class="form-group" style="background:#eff6ff;border:2px solid #93c5fd;border-radius:10px;padding:14px;">
                 <button type="button" onclick="addPurchaseCartItem()" style="width:100%;background:#2563eb;color:#fff;border:none;border-radius:8px;padding:12px;font-weight:700;font-size:14px;cursor:pointer;">➕ লিস্টে যুক্ত করুন (আরও মাল ক্রয়ের জন্য)</button>
@@ -5251,13 +5263,41 @@ function previewProductImage(input) {
         document.getElementById('preview-box').style.display='block';
     });
 }
+// 🔢 "স্টক পরিমাণ" অনুযায়ী ততগুলো সিরিয়াল ইনপুট বক্স দেখাও (আগের মান থাকলে সংরক্ষণ করে)
+const PROD_SERIAL_MAX = 200;
+function renderProdSerialInputs(prefill) {
+    const box = document.getElementById('prod-serial-list');
+    if(!box) return;
+    const qty = Math.max(0, parseInt(document.getElementById('prod-qty').value) || 0);
+    const prevValues = prefill || Array.from(box.querySelectorAll('.prod-serial-input')).map(i => i.value);
+    if(qty <= 0) {
+        box.innerHTML = '<div style="color:#94a3b8;font-size:12px;">প্রথমে উপরে "স্টক পরিমাণ" লিখুন</div>';
+        return;
+    }
+    const n = Math.min(qty, PROD_SERIAL_MAX);
+    let html = '';
+    for(let i = 0; i < n; i++) {
+        const val = ((prevValues[i] || '') + '').replace(/"/g, '&quot;');
+        html += `<input type="text" class="prod-serial-input" data-idx="${i}" value="${val}" placeholder="সিরিয়াল #${i+1}" autocomplete="off" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;">`;
+    }
+    if(qty > PROD_SERIAL_MAX) {
+        html += `<div style="color:#dc2626;font-size:11px;">⚠️ পরিমাণ ${qty} টি, কিন্তু সর্বোচ্চ ${PROD_SERIAL_MAX} টি সিরিয়াল বক্স একসাথে দেখানো যায়</div>`;
+    }
+    box.innerHTML = html;
+}
+function getProdSerialValues() {
+    const box = document.getElementById('prod-serial-list');
+    if(!box) return [];
+    return Array.from(box.querySelectorAll('.prod-serial-input')).map(i => i.value.trim());
+}
 function resetProductForm() {
     editingProductId=null; productImageBase64='';
     document.getElementById('product-page-title').textContent='📦 নতুন পণ্য স্টক এন্ট্রি';
     document.getElementById('product-edit-banner').style.display='none';
     document.getElementById('product-submit-btn').textContent='💾 পণ্য সেভ করুন';
     document.getElementById('product-submit-btn').style.backgroundColor='#16a34a';
-    ['prod-name','prod-buy','prod-sell','prod-wholesale','prod-qty','prod-details'].forEach(id=>document.getElementById(id).value='');
+    ['prod-name','prod-buy','prod-sell','prod-wholesale','prod-qty','prod-warranty','prod-details'].forEach(id=>document.getElementById(id).value='');
+    renderProdSerialInputs();
     document.getElementById('prod-category').value='বিবাহ কার্ড';
     const _prb=document.getElementById('prod-brand'); if(_prb) _prb.value='';
     document.getElementById('prod-image').value='';
@@ -5284,6 +5324,8 @@ async function editProduct(id) {
     document.getElementById('prod-sell').value=p.sellPrice;
     document.getElementById('prod-wholesale').value=p.wholesalePrice||'';
     document.getElementById('prod-qty').value=p.qty;
+    document.getElementById('prod-warranty').value=p.warranty||'';
+    renderProdSerialInputs(p.serialNumbers || (p.serialNo ? [p.serialNo] : []));
     document.getElementById('prod-details').value=p.details||'';
     if(imgSrc){document.getElementById('prod-img-preview').src=imgSrc;document.getElementById('preview-box').style.display='block';}
     window.scrollTo(0,0);
@@ -5310,6 +5352,8 @@ async function saveProduct(e) {
     const sellPrice=parseFloat(document.getElementById('prod-sell').value)||0;
     const wholesalePrice=parseFloat(document.getElementById('prod-wholesale').value)||0;
     const qty=parseInt(document.getElementById('prod-qty').value)||0;
+    const warranty=document.getElementById('prod-warranty').value.trim();
+    const serialNumbers=getProdSerialValues();
     const details=document.getElementById('prod-details').value;
     if(editingProductId!==null) {
         // ছবি IndexedDB তে সেভ করো (localStorage থেকে সরাও)
@@ -5317,7 +5361,7 @@ async function saveProduct(e) {
             await idbSaveImage('prod_' + editingProductId, productImageBase64);
         }
         // db তে image ফিল্ড রাখো backward compatibility এর জন্য (ছোট ছবি হলে)
-        db.products=db.products.map(p=>p.id===editingProductId?{...p,name,category,brand,buyPrice,sellPrice,wholesalePrice,qty,details,image:'idb:prod_'+editingProductId}:p);
+        db.products=db.products.map(p=>p.id===editingProductId?{...p,name,category,brand,buyPrice,sellPrice,wholesalePrice,qty,details,warranty,serialNumbers,image:'idb:prod_'+editingProductId}:p);
         saveDB(db); showToast('✅ পণ্যটি আপডেট হয়েছে! (ছবি IndexedDB তে)','success');
         // ⚡ সাথে সাথে ক্লাউডে সেভ
         const up=db.products.find(p=>p.id===editingProductId); if(up) saveOneProductToFirestore(up);
@@ -5328,11 +5372,12 @@ async function saveProduct(e) {
         if(productImageBase64) {
             await idbSaveImage('prod_' + newId, productImageBase64);
         }
-        db.products.push({id:newId,name,category,brand,buyPrice,sellPrice,wholesalePrice,qty,details,image:productImageBase64?'idb:prod_'+newId:''});
+        db.products.push({id:newId,name,category,brand,buyPrice,sellPrice,wholesalePrice,qty,details,warranty,serialNumbers,image:productImageBase64?'idb:prod_'+newId:''});
         saveDB(db); showToast('✅ পণ্যটি স্টকে যুক্ত হয়েছে! (ছবি IndexedDB তে)','success');
         // ⚡ সাথে সাথে ক্লাউডে সেভ
         const np=db.products.find(p=>p.id===newId); if(np) saveOneProductToFirestore(np);
-        ['prod-name','prod-buy','prod-sell','prod-wholesale','prod-qty','prod-details'].forEach(id=>document.getElementById(id).value='');
+        ['prod-name','prod-buy','prod-sell','prod-wholesale','prod-qty','prod-warranty','prod-details'].forEach(id=>document.getElementById(id).value='');
+        renderProdSerialInputs();
         document.getElementById('prod-category').value='বিবাহ কার্ড';
         const _prb3=document.getElementById('prod-brand'); if(_prb3) _prb3.value='';
         productImageBase64=''; document.getElementById('prod-img-preview').src='';
@@ -5344,6 +5389,7 @@ async function saveProduct(e) {
 async function loadStockTable() {
     const db=loadDB();
     refreshBrandDatalist();
+    if(editingProductId===null){ const _psl=document.getElementById('prod-serial-list'); if(_psl && !_psl.innerHTML.trim()) renderProdSerialInputs(); }
     const tbody=document.getElementById('stock-table-body');
     if(db.products.length===0){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:20px;">কোন পণ্য যুক্ত করা হয়নি!</td></tr>';return;}
     // IndexedDB + Firestore থেকে ছবি লোড করো
@@ -5374,7 +5420,7 @@ async function loadStockTable() {
         <tr style="${editingProductId===p.id?'background:#fef9c3;':''}">
             <td style="text-align:center;">${imgHtml}</td>
             <td style="font-family:monospace;font-size:12px;font-weight:700;color:#1e3c72;">${p.barcode||'<span style="color:#94a3b8;">—</span>'}</td>
-            <td><b>${p.name}</b>${p.category?'<br><span style="display:inline-block;margin-top:2px;background:#eef2ff;color:#4338ca;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;">'+p.category+'</span>':''}${p.brand?'<br><span style="display:inline-block;margin-top:2px;background:#fff7ed;color:#c2410c;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;">® '+p.brand+'</span>':''}${p.details?'<br><small style="color:#64748b;">'+p.details+'</small>':''}</td>
+            <td><b>${p.name}</b>${p.category?'<br><span style="display:inline-block;margin-top:2px;background:#eef2ff;color:#4338ca;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;">'+p.category+'</span>':''}${p.brand?'<br><span style="display:inline-block;margin-top:2px;background:#fff7ed;color:#c2410c;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;">® '+p.brand+'</span>':''}${p.details?'<br><small style="color:#64748b;">'+p.details+'</small>':''}${p.warranty?'<br><small style="color:#0369a1;">🛡️ ওয়ারেন্টি: '+p.warranty+'</small>':''}${(p.serialNumbers&&p.serialNumbers.filter(Boolean).length)?'<br><small style="color:#7c3aed;">🔢 সিরিয়াল: '+p.serialNumbers.filter(Boolean).join(', ')+'</small>':(p.serialNo?'<br><small style="color:#7c3aed;">🔢 সিরিয়াল: '+p.serialNo+'</small>':'')}</td>
             <td style="text-align:right;color:#dc2626;font-weight:600;">${p.buyPrice} ৳</td>
             <td style="text-align:right;color:#16a34a;font-weight:600;">${p.sellPrice} ৳</td>
             <td style="text-align:right;color:#7c3aed;font-weight:600;">${p.wholesalePrice?p.wholesalePrice+' ৳':'<span style="color:#cbd5e1;">—</span>'}</td>
@@ -5864,15 +5910,99 @@ function posAddToCart(id){
     }
     if(!p) return;
     if(p.qty<=0){ showToast(p.name+' স্টকে নেই!','error'); return; }
+
+    // 🔢 এই পণ্যের জন্য ক্রয় এন্ট্রিতে রেকর্ড করা কোনো সিরিয়াল নম্বর (এখনো বিক্রি হয়নি এমন) আছে কিনা দেখো
+    const availSerials = getAvailableSerialsForProduct(p.id);
+    if(availSerials.length>0){
+        openPosSerialPicker(p, availSerials);
+        return;
+    }
+
     const existing=saleCart.find(x=>String(x.id)===String(id));
     if(existing){
         if(existing.qty<p.qty){ existing.qty++; }
         else { showToast('স্টকে পর্যাপ্ত পণ্য নেই! স্টক: '+p.qty+' টি','error'); return; }
     } else {
         const usePrice = (posWholesaleMode && p.wholesalePrice) ? p.wholesalePrice : p.sellPrice;
-        saleCart.push({id:p.id,name:p.name,sellPrice:usePrice,buyPrice:p.buyPrice,qty:1,stock:p.qty,discount:0,imgSrc:''});
+        saleCart.push({id:p.id,name:p.name,sellPrice:usePrice,buyPrice:p.buyPrice,qty:1,stock:p.qty,discount:0,imgSrc:'',warranty:'',serialNo:''});
     }
     renderPosCart();
+}
+
+// 📋 একটি পণ্যের যেসব সিরিয়াল নম্বর ক্রয় এন্ট্রিতে আছে কিন্তু এখনো বিক্রি হয়নি বা চলতি কার্টে বাছাই করা হয়নি, তার তালিকা
+function getAvailableSerialsForProduct(prodId){
+    const db=loadDB();
+    const purchasedSerials=[]; // {serialNo, warranty}
+    (db.purchases||[]).forEach(pu=>{
+        if(String(pu.prodId)!==String(prodId)) return;
+        if(Array.isArray(pu.serialNumbers) && pu.serialNumbers.length>0){
+            pu.serialNumbers.forEach(sn=>{ if((sn||'').trim()) purchasedSerials.push({serialNo:sn.trim(), warranty:pu.warranty||''}); });
+        } else if((pu.serialNo||'').trim()){
+            purchasedSerials.push({serialNo:pu.serialNo.trim(), warranty:pu.warranty||''});
+        }
+    });
+    if(purchasedSerials.length===0) return [];
+
+    const soldSerials=new Set();
+    (db.sales||[]).forEach(s=>{
+        (s.cartItems||[]).forEach(it=>{
+            if(String(it.id)===String(prodId) && (it.serialNo||'').trim()) soldSerials.add(it.serialNo.trim());
+        });
+    });
+
+    const cartSerials=new Set();
+    saleCart.forEach(it=>{
+        if(String(it.id)===String(prodId) && (it.serialNo||'').trim()) cartSerials.add(it.serialNo.trim());
+    });
+
+    const seen=new Set(), result=[];
+    purchasedSerials.forEach(ps=>{
+        const sn=ps.serialNo;
+        if(soldSerials.has(sn)||cartSerials.has(sn)||seen.has(sn)) return;
+        seen.add(sn);
+        result.push({serialNo:sn, warranty:ps.warranty||''});
+    });
+    return result;
+}
+
+// 🔢 সিরিয়াল বাছাইয়ের পপআপ — যেই সিরিয়ালটি বিক্রয় করবেন সেটায় ক্লিক করলেই ওয়ারেন্টি/সিরিয়াল সহ কার্টে যুক্ত হবে
+function openPosSerialPicker(p, serials){
+    document.querySelectorAll('.itz-serial-picker-overlay').forEach(el=>el.remove());
+    const esc=(s)=>String(s).replace(/'/g,"\\'").replace(/"/g,'&quot;');
+    const overlay=document.createElement('div');
+    overlay.className='itz-serial-picker-overlay';
+    overlay.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.55);z-index:9500;display:flex;align-items:center;justify-content:center;padding:14px;';
+    overlay.onclick=function(e){ if(e.target===overlay) overlay.remove(); };
+    const itemsHtml=serials.map(s=>`
+        <button type="button" onclick="posPickSerialAndAdd(${p.id},'${esc(s.serialNo)}')"
+            style="width:100%;text-align:left;background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:10px;padding:10px 14px;margin-bottom:8px;cursor:pointer;font-family:inherit;">
+            <div style="font-size:13px;font-weight:800;color:#1e3c72;">🔢 ${s.serialNo}</div>
+            ${s.warranty?`<div style="font-size:11.5px;color:#0369a1;margin-top:2px;">🛡️ ওয়ারেন্টি: ${s.warranty}</div>`:'<div style="font-size:11px;color:#94a3b8;margin-top:2px;">ওয়ারেন্টি উল্লেখ নেই</div>'}
+        </button>`).join('');
+    overlay.innerHTML=`
+    <div style="background:#fff;border-radius:14px;max-width:360px;width:100%;max-height:80vh;overflow-y:auto;padding:18px;" onclick="event.stopPropagation()">
+        <div style="font-weight:800;font-size:15px;color:#1e293b;margin-bottom:4px;">📦 ${p.name}</div>
+        <div style="font-size:12px;color:#64748b;margin-bottom:12px;">যে সিরিয়ালটি বিক্রয় করবেন সেটায় ক্লিক করুন</div>
+        ${itemsHtml}
+        <button type="button" onclick="this.closest('.itz-serial-picker-overlay').remove()"
+            style="width:100%;margin-top:4px;padding:10px;background:#64748b;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">✕ বাতিল</button>
+    </div>`;
+    document.body.appendChild(overlay);
+}
+function posPickSerialAndAdd(id, serialNo){
+    const db=loadDB();
+    const p=db.products.find(x=>x.id===id);
+    document.querySelectorAll('.itz-serial-picker-overlay').forEach(el=>el.remove());
+    if(!p) return;
+    const availSerials=getAvailableSerialsForProduct(id);
+    const chosen=availSerials.find(s=>s.serialNo===serialNo) || {serialNo, warranty:''};
+    if(p.qty<=0){ showToast(p.name+' স্টকে নেই!','error'); return; }
+    const totalInCartForProduct=saleCart.filter(x=>String(x.id)===String(p.id)).reduce((s,x)=>s+x.qty,0);
+    if(totalInCartForProduct>=p.qty){ showToast('স্টকে পর্যাপ্ত পণ্য নেই! স্টক: '+p.qty+' টি','error'); return; }
+    const usePrice=(posWholesaleMode && p.wholesalePrice) ? p.wholesalePrice : p.sellPrice;
+    saleCart.push({id:p.id,name:p.name,sellPrice:usePrice,buyPrice:p.buyPrice,qty:1,stock:p.qty,discount:0,imgSrc:'',warranty:chosen.warranty||'',serialNo:chosen.serialNo||''});
+    renderPosCart();
+    showToast('✅ "'+p.name+'" (সিরিয়াল: '+chosen.serialNo+') কার্টে যুক্ত হয়েছে','success',2200);
 }
 function posCartQty(idx,delta){
     const db=loadDB();
@@ -5897,6 +6027,14 @@ function posCartSetQty(idx,val){
 function posCartSetDiscount(idx,val){
     saleCart[idx].discount=Math.max(0,parseFloat(val)||0);
     renderPosCart();
+}
+function posCartSetWarranty(idx,val){
+    if(!saleCart[idx]) return;
+    saleCart[idx].warranty=val;
+}
+function posCartSetSerial(idx,val){
+    if(!saleCart[idx]) return;
+    saleCart[idx].serialNo=val;
 }
 function posCartRemove(idx){
     saleCart.splice(idx,1);
@@ -5938,7 +6076,15 @@ function renderPosCart(){
         const subtotal=Math.max(0,(item.sellPrice*item.qty)-(item.discount||0));
         const stockColor=item.stock===0?'#ef4444':'#64748b';
         return `<tr style="border-bottom:1px solid #f1f5f9;">
-            <td style="padding:8px 10px;font-size:12.5px;font-weight:700;color:#1e293b;">${item.name}</td>
+            <td style="padding:8px 10px;font-size:12.5px;font-weight:700;color:#1e293b;">
+                <div>${item.name}</div>
+                <div style="display:flex;gap:4px;margin-top:4px;">
+                    <input type="text" value="${(item.warranty||'').replace(/"/g,'&quot;')}" placeholder="🛡️ ওয়ারেন্টি" onchange="posCartSetWarranty(${idx},this.value)"
+                        style="width:78px;padding:3px 5px;border:1px solid #cbd5e1;border-radius:5px;font-size:10.5px;font-family:inherit;outline:none;color:#0369a1;">
+                    <input type="text" value="${(item.serialNo||'').replace(/"/g,'&quot;')}" placeholder="🔢 সিরিয়াল" onchange="posCartSetSerial(${idx},this.value)"
+                        style="width:78px;padding:3px 5px;border:1px solid #cbd5e1;border-radius:5px;font-size:10.5px;font-family:inherit;outline:none;color:#7c3aed;">
+                </div>
+            </td>
             <td style="padding:8px;text-align:center;font-size:12px;color:${stockColor};font-weight:600;">${item.stock}</td>
             <td style="padding:8px;text-align:center;">
                 <div style="display:flex;align-items:center;justify-content:center;gap:4px;">
@@ -6495,7 +6641,7 @@ function saveSale(e) {
     const prodId=saleCart.length===1?saleCart[0].id:null;
 
     if(editingSaleId!==null){
-        db.sales=db.sales.map(s=>s.id===editingSaleId?{...s,date,prodId,prodName,cartItems:saleCart.map(x=>({id:x.id,name:x.name,qty:x.qty,sellPrice:x.sellPrice,buyPrice:x.buyPrice})),qty:saleCart.reduce((s,x)=>s+x.qty,0),method,desc,amount:totalAmount,discount,profit,buyerName,commissionId,commissionName,commissionDeduct,netAmount:finalNetAmount}:s);
+        db.sales=db.sales.map(s=>s.id===editingSaleId?{...s,date,prodId,prodName,cartItems:saleCart.map(x=>({id:x.id,name:x.name,qty:x.qty,sellPrice:x.sellPrice,buyPrice:x.buyPrice,warranty:x.warranty||'',serialNo:x.serialNo||''})),qty:saleCart.reduce((s,x)=>s+x.qty,0),method,desc,amount:totalAmount,discount,profit,buyerName,commissionId,commissionName,commissionDeduct,netAmount:finalNetAmount}:s);
         saveDB(db); showToast('বিক্রি আপডেট হয়েছে!','success'); editingSaleId=null;
     } else {
         // স্টক কমাও
@@ -6508,7 +6654,7 @@ function saveSale(e) {
                 updatedProducts.push(db.products[idx]);
             }
         }
-        const newSale={id:Date.now(),date,prodId,prodName,cartItems:saleCart.map(x=>({id:x.id,name:x.name,qty:x.qty,sellPrice:x.sellPrice,buyPrice:x.buyPrice})),qty:saleCart.reduce((s,x)=>s+x.qty,0),method,desc,amount:totalAmount,discount,profit,buyerName,buyerPhone,buyerAddress,commissionId,commissionName,commissionDeduct,netAmount:finalNetAmount};
+        const newSale={id:Date.now(),date,prodId,prodName,cartItems:saleCart.map(x=>({id:x.id,name:x.name,qty:x.qty,sellPrice:x.sellPrice,buyPrice:x.buyPrice,warranty:x.warranty||'',serialNo:x.serialNo||''})),qty:saleCart.reduce((s,x)=>s+x.qty,0),method,desc,amount:totalAmount,discount,profit,buyerName,buyerPhone,buyerAddress,commissionId,commissionName,commissionDeduct,netAmount:finalNetAmount};
         db.sales.push(newSale);
         // ✅ বিক্রয়ের পরে onSnapshot যেন স্টক reset না করে — ৩ সেকেন্ড ব্লক
         _stockSavingUntil = Date.now() + 3000;
@@ -7523,7 +7669,7 @@ function editSale(id) {
     if(s.cartItems && s.cartItems.length>0) {
         saleCart = s.cartItems.map(x => {
             const prod = db.products.find(p=>String(p.id)===String(x.id));
-            return {id:x.id, name:x.name, sellPrice:x.sellPrice, buyPrice:x.buyPrice, qty:x.qty, stock:(prod?prod.qty:0)+(x.qty||0)};
+            return {id:x.id, name:x.name, sellPrice:x.sellPrice, buyPrice:x.buyPrice, qty:x.qty, stock:(prod?prod.qty:0)+(x.qty||0), warranty:x.warranty||'', serialNo:x.serialNo||''};
         });
     } else if(s.prodId) {
         const prod = db.products.find(p=>String(p.id)===String(s.prodId));
@@ -7586,6 +7732,34 @@ function previewPurchaseMemoImage(input) {
     });
 }
 
+// 🔢 "পরিমাণ" অনুযায়ী ততগুলো সিরিয়াল ইনপুট বক্স দেখাও (আগের মান থাকলে সংরক্ষণ করে)
+const PURCHASE_SERIAL_MAX = 200;
+function renderPurchaseSerialInputs(prefill) {
+    const box = document.getElementById('purchase-serial-list');
+    if(!box) return;
+    const qty = Math.max(0, parseInt(document.getElementById('purchase-qty').value) || 0);
+    const prevValues = prefill || Array.from(box.querySelectorAll('.purchase-serial-input')).map(i => i.value);
+    if(qty <= 0) {
+        box.innerHTML = '<div style="color:#94a3b8;font-size:12px;">প্রথমে উপরে "পরিমাণ" লিখুন</div>';
+        return;
+    }
+    const n = Math.min(qty, PURCHASE_SERIAL_MAX);
+    let html = '';
+    for(let i = 0; i < n; i++) {
+        const val = ((prevValues[i] || '') + '').replace(/"/g, '&quot;');
+        html += `<input type="text" class="purchase-serial-input" data-idx="${i}" value="${val}" placeholder="সিরিয়াল #${i+1}" autocomplete="off" style="width:100%;padding:8px 10px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px;font-family:inherit;outline:none;box-sizing:border-box;">`;
+    }
+    if(qty > PURCHASE_SERIAL_MAX) {
+        html += `<div style="color:#dc2626;font-size:11px;">⚠️ পরিমাণ ${qty} টি, কিন্তু সর্বোচ্চ ${PURCHASE_SERIAL_MAX} টি সিরিয়াল বক্স একসাথে দেখানো যায়</div>`;
+    }
+    box.innerHTML = html;
+}
+function getPurchaseSerialValues() {
+    const box = document.getElementById('purchase-serial-list');
+    if(!box) return [];
+    return Array.from(box.querySelectorAll('.purchase-serial-input')).map(i => i.value.trim());
+}
+
 // 🛒 কার্টে বর্তমান ফর্মের আইটেম যুক্ত করো (একসাথে একাধিক মাল ক্রয়)
 function addPurchaseCartItem() {
     if(editingPurchaseId!==null){ showToast('সম্পাদনা মোডে একাধিক আইটেম যুক্ত করা যাবে না','error'); return; }
@@ -7605,7 +7779,9 @@ function addPurchaseCartItem() {
             sellPrice:parseFloat(document.getElementById('purchase-sell-price').value)||0,
             wholesalePrice:parseFloat(document.getElementById('purchase-wholesale-price').value)||0,
             qty, barcode:document.getElementById('purchase-barcode').value||'',
-            productImage:purchaseImageBase64
+            productImage:purchaseImageBase64,
+            warranty:document.getElementById('purchase-warranty').value.trim(),
+            serialNumbers:getPurchaseSerialValues()
         };
     } else if(selVal) {
         const db=loadDB(); const p=db.products.find(x=>String(x.id)===String(selVal));
@@ -7615,7 +7791,9 @@ function addPurchaseCartItem() {
             buyPrice:parseFloat(document.getElementById('purchase-buy-price-exist').value)||0,
             sellPrice:parseFloat(document.getElementById('purchase-sell-price-exist').value)||0,
             wholesalePrice:parseFloat(document.getElementById('purchase-wholesale-price-exist').value)||0,
-            qty, barcode:'', productImage:''
+            qty, barcode:'', productImage:'',
+            warranty:document.getElementById('purchase-warranty').value.trim(),
+            serialNumbers:getPurchaseSerialValues()
         };
     } else {
         showToast('পণ্য সিলেক্ট করুন বা নতুন মাল ক্রয় বাছুন!','error');return;
@@ -7638,6 +7816,8 @@ function addPurchaseCartItem() {
     document.getElementById('purchase-sell-price-exist').value='';
     document.getElementById('purchase-wholesale-price-exist').value='';
     document.getElementById('purchase-qty').value='';
+    document.getElementById('purchase-warranty').value='';
+    renderPurchaseSerialInputs();
     document.getElementById('purchase-barcode').value='';
     const dlBtn=document.getElementById('download-barcode-btn'); if(dlBtn) dlBtn.style.display='none';
     purchaseImageBase64='';
@@ -7677,6 +7857,8 @@ function renderPurchaseCart() {
             <div style="flex:1;min-width:0;">
                 <div style="font-weight:700;font-size:13px;color:#1e293b;">${item.prodName}${item.isNew?' <span style="background:#dbeafe;color:#1e40af;font-size:10px;padding:1px 6px;border-radius:4px;">নতুন</span>':''}</div>
                 <div style="font-size:12px;color:#64748b;margin-top:2px;">${item.qty} টি × ${item.buyPrice.toFixed(2)}৳ = <b style="color:#15803d;">${lineTotal.toFixed(2)}৳</b></div>
+                ${item.warranty?`<div style="font-size:11px;color:#0369a1;margin-top:1px;">🛡️ ${item.warranty}</div>`:''}
+                ${(item.serialNumbers&&item.serialNumbers.filter(Boolean).length)?`<div style="font-size:11px;color:#7c3aed;margin-top:1px;">🔢 ${item.serialNumbers.filter(Boolean).join(', ')}</div>`:''}
             </div>
             <button type="button" onclick="removePurchaseCartItem(${idx})" style="background:#fee2e2;color:#dc2626;border:none;border-radius:6px;padding:6px 10px;font-weight:700;cursor:pointer;flex-shrink:0;">✕</button>
         </div>`;
@@ -7841,6 +8023,8 @@ function resetPurchaseForm() {
     document.getElementById('purchase-buy-price-exist').value='';
     document.getElementById('purchase-sell-price-exist').value='';
     document.getElementById('purchase-qty').value='';
+    document.getElementById('purchase-warranty').value='';
+    renderPurchaseSerialInputs();
     document.getElementById('purchase-details').value='';
     document.getElementById('purchase-payment-method').value='cash';
     document.getElementById('purchase-edit-banner').style.display='none';
@@ -7865,6 +8049,8 @@ function editPurchase(id) {
     editingPurchaseId=id;
     document.getElementById('purchase-date').value=p.date;
     document.getElementById('purchase-qty').value=p.qty;
+    document.getElementById('purchase-warranty').value=p.warranty||'';
+    renderPurchaseSerialInputs(p.serialNumbers || (p.serialNo ? [p.serialNo] : []));
     document.getElementById('purchase-details').value=p.details||'';
     document.getElementById('purchase-payment-method').value=p.method||'cash';
 
@@ -7930,6 +8116,8 @@ async function savePurchase(e) {
     const db=loadDB(); const d=document.getElementById('purchase-date').value;
     const selVal=document.getElementById('purchase-product-select').value;
     const qty=parseInt(document.getElementById('purchase-qty').value)||0;
+    const warranty=document.getElementById('purchase-warranty').value.trim();
+    const serialNumbers=getPurchaseSerialValues();
     const method=document.getElementById('purchase-payment-method').value;
     const details=document.getElementById('purchase-details').value;
 
@@ -7961,7 +8149,8 @@ async function savePurchase(e) {
                     sellPrice:parseFloat(document.getElementById('purchase-sell-price').value)||0,
                     wholesalePrice:parseFloat(document.getElementById('purchase-wholesale-price').value)||0,
                     qty, barcode:document.getElementById('purchase-barcode').value||'',
-                    productImage:purchaseImageBase64
+                    productImage:purchaseImageBase64,
+                    warranty, serialNumbers
                 });
             }
         } else if(selVal && qty>0) {
@@ -7972,7 +8161,8 @@ async function savePurchase(e) {
                     buyPrice:parseFloat(document.getElementById('purchase-buy-price-exist').value)||0,
                     sellPrice:parseFloat(document.getElementById('purchase-sell-price-exist').value)||0,
                     wholesalePrice:parseFloat(document.getElementById('purchase-wholesale-price-exist').value)||0,
-                    qty, barcode:'', productImage:''
+                    qty, barcode:'', productImage:'',
+                    warranty, serialNumbers
                 });
             }
         }
@@ -7996,7 +8186,7 @@ async function savePurchase(e) {
                 if(item.sellPrice>0) db.products[idx].sellPrice=item.sellPrice;
                 if(item.wholesalePrice>0) db.products[idx].wholesalePrice=item.wholesalePrice;
             }
-            db.purchases.push({id:++idCounter,date:d,prodId,prodName:item.prodName,buyPrice:item.buyPrice,sellPrice:item.sellPrice,wholesalePrice:item.wholesalePrice,qty:item.qty,method,details,image:itemImage,memoImage:memoImageRef});
+            db.purchases.push({id:++idCounter,date:d,prodId,prodName:item.prodName,buyPrice:item.buyPrice,sellPrice:item.sellPrice,wholesalePrice:item.wholesalePrice,qty:item.qty,method,details,image:itemImage,memoImage:memoImageRef,warranty:item.warranty||'',serialNumbers:item.serialNumbers||[]});
             touchedProductIds.push(prodId);
             savedCount++; totalQtySaved+=item.qty;
         }
@@ -8069,7 +8259,7 @@ async function savePurchase(e) {
             const idx=db.products.findIndex(p=>String(p.id)===String(old.prodId));
             if(idx!==-1) db.products[idx].qty=Math.max(0,db.products[idx].qty-old.qty);
         }
-        db.purchases=db.purchases.map(x=>x.id===editingPurchaseId?{...x,date:d,prodId,prodName,buyPrice,sellPrice,wholesalePrice,qty,method,details,memoImage:memoImageRef}:x);
+        db.purchases=db.purchases.map(x=>x.id===editingPurchaseId?{...x,date:d,prodId,prodName,buyPrice,sellPrice,wholesalePrice,qty,method,details,memoImage:memoImageRef,warranty,serialNumbers}:x);
         if(prodId){
             const idx=db.products.findIndex(p=>String(p.id)===String(prodId));
             if(idx!==-1) db.products[idx].qty+=qty;
@@ -8084,7 +8274,7 @@ async function savePurchase(e) {
         resetPurchaseForm();
         loadPurchaseTable();
     } else {
-        db.purchases.push({id:Date.now(),date:d,prodId,prodName,buyPrice,sellPrice,wholesalePrice,qty,method,details,image:image,memoImage:memoImageRef});
+        db.purchases.push({id:Date.now(),date:d,prodId,prodName,buyPrice,sellPrice,wholesalePrice,qty,method,details,image:image,memoImage:memoImageRef,warranty,serialNumbers});
         saveDB(db); loadProductDropdown(); showToast('ক্রয় সেভ হয়েছে! '+qty+'টি '+prodName+' স্টকে যোগ হয়েছে।','success');
         // ⚡ সাথে সাথে ক্লাউডে পণ্য সেভ/আপডেট করো
         _stockSavingUntil = Date.now() + 2000; // ২ সেকেন্ড onSnapshot products ওভাররাইট ব্লক
@@ -8106,6 +8296,8 @@ async function savePurchase(e) {
         document.getElementById('purchase-sell-price-exist').value='';
         document.getElementById('purchase-wholesale-price-exist').value='';
         document.getElementById('purchase-qty').value='';
+        document.getElementById('purchase-warranty').value='';
+        renderPurchaseSerialInputs();
         document.getElementById('purchase-details').value='';
         purchaseImageBase64='';
         document.getElementById('purchase-img-preview').src='';
@@ -8170,7 +8362,7 @@ async function loadPurchaseTable() {
         <tr style="${editingPurchaseId===p.id?'background:#fef9c3;':''}">
             <td style="text-align:center;">${imgHtml}</td>
             <td style="white-space:nowrap;">${p.date}</td>
-            <td><b>${p.prodName}</b>${memoHtml}${p.details?'<br><small style="color:#64748b;">'+p.details+'</small>':''}</td>
+            <td><b>${p.prodName}</b>${memoHtml}${p.details?'<br><small style="color:#64748b;">'+p.details+'</small>':''}${p.warranty?'<br><small style="color:#0369a1;">🛡️ ওয়ারেন্টি: '+p.warranty+'</small>':''}${(p.serialNumbers&&p.serialNumbers.filter(Boolean).length)?'<br><small style="color:#7c3aed;">🔢 সিরিয়াল: '+p.serialNumbers.filter(Boolean).join(', ')+'</small>':(p.serialNo?'<br><small style="color:#7c3aed;">🔢 সিরিয়াল: '+p.serialNo+'</small>':'')}</td>
             <td style="text-align:right;color:#dc2626;font-weight:700;">${(p.buyPrice||0).toFixed(2)} ৳</td>
             <td style="text-align:right;color:#16a34a;font-weight:700;">${(p.sellPrice||0).toFixed(2)} ৳</td>
             <td style="text-align:right;color:#7c3aed;font-weight:700;">${(p.wholesalePrice||0).toFixed(2)} ৳</td>
@@ -10737,6 +10929,58 @@ function showInvoice(sale) {
 
     const pmNames = { cash:'নগদ', bkash:'বিকাশ', rocket:'রকেট', nagad:'নগদ পেমেন্ট', load1:'লোড ২০২২৩৪৭১', load2:'লোড ২০৭২৬৫৫৮', card2949:'কার্ড ২৯/৪৯', other:'অন্যান্য' };
 
+    // পণ্যের সারি — একই পণ্য (নাম/আইডি) একাধিকবার থাকলে একটিই সারিতে দেখাবে, নিচে প্রতিটি ইউনিটের ওয়ারেন্টি/সিরিয়াল আলাদা লাইনে
+    let itemRowsHtml = '';
+    if(sale.cartItems && sale.cartItems.length>0){
+        // 🔗 একই পণ্য গ্রুপ করো
+        const groups = [];
+        const groupMap = new Map();
+        sale.cartItems.forEach((it)=>{
+            const key = (it.id!=null ? it.id : it.name) + '|' + it.name;
+            let g = groupMap.get(key);
+            if(!g){
+                g = {name:it.name, qty:0, total:0, units:[]};
+                groupMap.set(key, g);
+                groups.push(g);
+            }
+            g.qty += (it.qty||1);
+            g.total += (it.sellPrice||0)*(it.qty||1);
+            if(it.warranty || it.serialNo) g.units.push({warranty:it.warranty||'', serialNo:it.serialNo||''});
+        });
+        itemRowsHtml = groups.map((g,i)=>{
+            const unitLines = g.units.map(u=>[
+                u.warranty ? '🛡️ ওয়ারেন্টি: '+u.warranty : '',
+                u.serialNo ? '🔢 সিরিয়াল: '+u.serialNo : ''
+            ].filter(Boolean).join(' | ')).filter(Boolean);
+            const descLine = (sale.desc && i===0) ? sale.desc : '';
+            const extraLines = [descLine, ...unitLines].filter(Boolean);
+            const extraHtml = extraLines.length
+                ? '<br>'+extraLines.map(l=>'<span style="font-size:9.5px;color:#555;display:block;">'+l+'</span>').join('')
+                : '';
+            const avgPrice = g.qty>0 ? (g.total/g.qty) : 0;
+            return `<tr>
+                <td style="padding:8px 3px;text-align:center;border-bottom:1px solid #eee;">${i+1}</td>
+                <td style="padding:8px 3px;border-bottom:1px solid #eee;">
+                    <b>${g.name}</b>${extraHtml}
+                </td>
+                <td style="padding:8px 3px;text-align:center;border-bottom:1px solid #eee;">${g.qty}</td>
+                <td style="padding:8px 3px;text-align:right;border-bottom:1px solid #eee;">${avgPrice.toFixed(0)}</td>
+                <td style="padding:8px 3px;text-align:right;font-weight:700;border-bottom:1px solid #eee;">${g.total.toFixed(0)}</td>
+            </tr>`;
+        }).join('');
+    } else {
+        itemRowsHtml = `<tr>
+            <td style="padding:8px 3px;text-align:center;border-bottom:1px solid #eee;">১</td>
+            <td style="padding:8px 3px;border-bottom:1px solid #eee;">
+                <b>${sale.prodName}</b>
+                ${sale.desc?'<br><span style="font-size:10px;color:#555;">'+sale.desc+'</span>':''}
+            </td>
+            <td style="padding:8px 3px;text-align:center;border-bottom:1px solid #eee;">${sale.qty||1}</td>
+            <td style="padding:8px 3px;text-align:right;border-bottom:1px solid #eee;">${sale.qty>1?((sale.amount||0)/sale.qty).toFixed(0):''}</td>
+            <td style="padding:8px 3px;text-align:right;font-weight:700;border-bottom:1px solid #eee;">${(sale.amount||0).toFixed(0)}</td>
+        </tr>`;
+    }
+
     overlay.innerHTML = `
     <div class="itz-invoice-box" id="itz-printable">
         <!-- হেডার -->
@@ -10808,16 +11052,7 @@ function showInvoice(sale) {
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td style="padding:8px 3px;text-align:center;border-bottom:1px solid #eee;">১</td>
-                        <td style="padding:8px 3px;border-bottom:1px solid #eee;">
-                            <b>${sale.prodName}</b>
-                            ${sale.desc?'<br><span style="font-size:10px;color:#555;">'+sale.desc+'</span>':''}
-                        </td>
-                        <td style="padding:8px 3px;text-align:center;border-bottom:1px solid #eee;">${sale.qty||1}</td>
-                        <td style="padding:8px 3px;text-align:right;border-bottom:1px solid #eee;">${sale.qty>1?((sale.amount||0)/sale.qty).toFixed(0):''}</td>
-                        <td style="padding:8px 3px;text-align:right;font-weight:700;border-bottom:1px solid #eee;">${(sale.amount||0).toFixed(0)}</td>
-                    </tr>
+                    ${itemRowsHtml}
                     ${discount>0?`<tr><td colspan="4" style="padding:4px 3px;text-align:right;color:#dc2626;">ডিসকাউন্ট:</td><td style="padding:4px 3px;text-align:right;color:#dc2626;">- ${discount.toFixed(0)}</td></tr>`:''}
                     ${commDeduct>0?`<tr><td colspan="4" style="padding:4px 3px;text-align:right;color:#9a3412;">ব্যয়না:</td><td style="padding:4px 3px;text-align:right;color:#9a3412;">- ${commDeduct.toFixed(0)}</td></tr>`:''}
                     <!-- ফাঁকা সারি -->
