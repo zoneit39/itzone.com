@@ -3687,13 +3687,24 @@ function startFirestoreSync() {
                 showToast('✅ পণ্য ডেটা নতুন সিস্টেমে মাইগ্রেট হয়েছে!', 'success', 3000);
             }
             // ⚠️ ক্রয় সেভ চলাকালীন products ওভাররাইট করবো না
+            // এছাড়া firestoreProducts ক্যাশ পুরনো (stale) হতে পারে, তাই লোকাল স্টক
+            // (যেখানে সদ্য করা ক্রয় সবসময় প্রতিফলিত থাকে) সবসময় অগ্রাধিকার পাবে —
+            // শুধু রিমোটে থাকা কিন্তু লোকালে নেই এমন পণ্য যোগ হবে।
+            function mergeProductsPreferLocal(remoteArr, localArr) {
+                const r = remoteArr || [];
+                const l = localArr || [];
+                if(l.length === 0) return r;
+                const localIds = new Set(l.map(x => x.id));
+                const remoteOnly = r.filter(x => !localIds.has(x.id));
+                return [...l, ...remoteOnly];
+            }
             let products;
             if(Date.now() < _stockSavingUntil) {
                 const localRaw2 = localStorage.getItem(getActiveDBKey());
                 const localParsed = localRaw2 ? JSON.parse(localRaw2) : {};
                 products = localParsed.products || firestoreProducts || local.products || [];
             } else {
-                products = firestoreProducts || local.products || [];
+                products = mergeProductsPreferLocal(firestoreProducts || remote.products, local.products);
             }
 
             function mergeArr(r, l) {
@@ -4232,11 +4243,19 @@ function startFirestoreSync_byUid(uid) {
                 const extra = (l || []).filter(x => x.id && !ids.has(x.id));
                 return [...r, ...extra];
             }
+            function mergeProductsPreferLocal(remoteArr, localArr) {
+                const r = remoteArr || [];
+                const l = localArr || [];
+                if(l.length === 0) return r;
+                const localIds = new Set(l.map(x => x.id));
+                const remoteOnly = r.filter(x => !localIds.has(x.id));
+                return [...l, ...remoteOnly];
+            }
 
             const products = (Date.now() < _stockSavingUntil)
                 ? (() => { const lr = localStorage.getItem('it_zone_v3_db_' + uid); return lr ? (JSON.parse(lr).products || []) : (firestoreProducts && firestoreProducts.length > 0 ? firestoreProducts : mergeArr(remote.products, local.products)); })()
                 : (firestoreProducts && firestoreProducts.length > 0
-                    ? firestoreProducts
+                    ? mergeProductsPreferLocal(firestoreProducts, local.products)
                     : mergeArr(remote.products, local.products));
 
             const merged = {
