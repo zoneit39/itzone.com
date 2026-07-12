@@ -3696,26 +3696,34 @@ function startFirestoreSync() {
                 products = firestoreProducts || local.products || [];
             }
 
+            function mergeArr(r, l) {
+                if(!r || r.length === 0) return l || [];
+                if(!l || l.length === 0) return r || [];
+                const ids = new Set(r.map(x => x.id));
+                const extra = (l || []).filter(x => x.id && !ids.has(x.id));
+                return [...r, ...extra];
+            }
+
             const merged = {
-                dayStart:   remote.dayStart   || local.dayStart   || {},
-                dayEnd:     remote.dayEnd     || local.dayEnd     || {},
-                pawona:     remote.pawona     || local.pawona     || {},
-                porishod:   remote.porishod   || local.porishod   || {},
+                dayStart:   Object.assign({}, local.dayStart   || {}, remote.dayStart   || {}),
+                dayEnd:     Object.assign({}, local.dayEnd     || {}, remote.dayEnd     || {}),
+                pawona:     Object.assign({}, local.pawona     || {}, remote.pawona     || {}),
+                porishod:   Object.assign({}, local.porishod   || {}, remote.porishod   || {}),
                 products:   products,
-                sales:      remote.sales      || local.sales      || [],
-                ledgers:    remote.ledgers    || local.ledgers    || [],
-                expenses:   remote.expenses   || local.expenses   || [],
-                purchases:  remote.purchases  || local.purchases  || [],
-                commissions:remote.commissions|| local.commissions|| [],
-                paonaNotebook: remote.paonaNotebook || local.paonaNotebook || [],
-                dailyIncomes: remote.dailyIncomes || local.dailyIncomes || [],
-                stockUse:   remote.stockUse   || local.stockUse   || [],
-                savings:    remote.savings    || local.savings    || [],
-                settings:   remote.settings   || local.settings   || {},
-                taxes:      remote.taxes      || local.taxes      || [],
-                units:      remote.units      || local.units      || [],
-                paymentTypes: remote.paymentTypes || local.paymentTypes || [],
-                currencies: remote.currencies || local.currencies || [],
+                sales:      mergeArr(remote.sales,      local.sales),
+                ledgers:    mergeArr(remote.ledgers,    local.ledgers),
+                expenses:   mergeArr(remote.expenses,   local.expenses),
+                purchases:  mergeArr(remote.purchases,  local.purchases),
+                commissions:mergeArr(remote.commissions,local.commissions),
+                paonaNotebook: mergeArr(remote.paonaNotebook, local.paonaNotebook),
+                dailyIncomes: mergeArr(remote.dailyIncomes, local.dailyIncomes),
+                stockUse:   mergeArr(remote.stockUse,   local.stockUse),
+                savings:    mergeArr(remote.savings,    local.savings),
+                settings:   Object.assign({}, local.settings || {}, remote.settings || {}),
+                taxes:      mergeArr(remote.taxes,      local.taxes),
+                units:      mergeArr(remote.units,      local.units),
+                paymentTypes: mergeArr(remote.paymentTypes, local.paymentTypes),
+                currencies: mergeArr(remote.currencies, local.currencies),
             };
             try {
                 const cacheData = { ...merged, products: merged.products.map(p => ({...p, image: p.image ? 'idb:prod_'+p.id : ''})) };
