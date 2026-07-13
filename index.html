@@ -5941,6 +5941,16 @@ function getAvailableSerialsForProduct(prodId){
             purchasedSerials.push({serialNo:pu.serialNo.trim(), warranty:pu.warranty||''});
         }
     });
+    // 🆕 প্রোডাক্ট এন্ট্রিতে সরাসরি যোগ করা সিরিয়াল নম্বরও (Purchase ছাড়াই) বিবেচনায় নেওয়া হলো
+    const prodForSerial=(db.products||[]).find(x=>String(x.id)===String(prodId));
+    if(prodForSerial){
+        if(Array.isArray(prodForSerial.serialNumbers) && prodForSerial.serialNumbers.length>0){
+            prodForSerial.serialNumbers.forEach(sn=>{ if((sn||'').trim()) purchasedSerials.push({serialNo:sn.trim(), warranty:prodForSerial.warranty||''}); });
+        } else if((prodForSerial.serialNo||'').trim()){
+            purchasedSerials.push({serialNo:prodForSerial.serialNo.trim(), warranty:prodForSerial.warranty||''});
+        }
+    }
+
     if(purchasedSerials.length===0) return [];
 
     const soldSerials=new Set();
